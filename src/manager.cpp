@@ -116,7 +116,10 @@ Manager::Manager(Parameters nornirParameters):
     if(!_toSimulate){
         // We cannot create energy and task modules
         // since they are not simulated by mammut
-        _counter = _p.mammut.getInstanceEnergy()->getCounter();
+        _counter = _p.mammut.getInstanceEnergy()->getCounter(COUNTER_CPUS);
+	if(!_counter){
+	  _counter = _p.mammut.getInstanceEnergy()->getCounter(COUNTER_PLUG);	  
+	}
         _task = _p.mammut.getInstanceTask();
     }
     DEBUG("Mammut handlers created.");

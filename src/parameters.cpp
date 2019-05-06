@@ -432,11 +432,13 @@ ParametersValidation Parameters::validateKnobFrequencies(){
         return VALIDATION_NO_MANUAL_DVFS;
     }
 
+#if defined(__x86_64__)
     for(size_t i = 0; i < virtualCores.size(); i++){
         if(!virtualCores.at(i)->hasFlag("constant_tsc")){
             return VALIDATION_NO_CONSTANT_TSC;
         }
     }
+#endif
 
     if(fastReconfiguration &&
        (!isHighestFrequencySettable() ||

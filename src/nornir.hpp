@@ -27,7 +27,10 @@
 #ifndef NORNIR_HPP_
 #define NORNIR_HPP_
 
+#ifdef __x86_64__
 #include "./dataflow/interpreter.hpp"
+#endif
+
 #include "interface.hpp"
 #include "instrumenter.hpp"
 #include "manager.hpp"

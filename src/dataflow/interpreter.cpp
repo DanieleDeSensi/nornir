@@ -25,6 +25,8 @@
  * =========================================================================
  */
 
+#ifdef __x86_64__
+
 #include "interpreter.hpp"
 #include "../external/mammut/mammut/mammut.hpp"
 #include <map>
@@ -526,3 +528,4 @@ Interpreter::~Interpreter(){
 }
 }
 
+#endif

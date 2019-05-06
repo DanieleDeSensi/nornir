@@ -12,7 +12,7 @@
  *  modify it under the terms of the Lesser GNU General Public
  *  License as published by the Free Software Foundation, either
  *  version 3 of the License, or (at your option) any later version.
-
+ 
  *  nornir is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -860,8 +860,37 @@ SelectorLearner::SelectorLearner(const Parameters& p,
         knobsFlags[KNOB_FREQUENCY] = true;
     }else if(_p.strategyPredictionPerformance == STRATEGY_PREDICTION_PERFORMANCE_SMT ||
              _p.strategyPredictionPower == STRATEGY_PREDICTION_POWER_SMT){
-        // Add to 'additionalPoints' the points that MUST be visited before starting with the proper 'exploration' phase
-        ;
+	KnobsValues kv(KNOB_VALUE_RELATIVE);
+
+	kv.reset();
+	kv[KNOB_VIRTUAL_CORES] = 0.0;
+	kv[KNOB_FREQUENCY] = 0.0;
+	kv[KNOB_HYPERTHREADING] = 0.0;
+	additionalPoints.push_back(kv);
+
+	kv.reset();
+	kv[KNOB_VIRTUAL_CORES] = 0.0;
+	kv[KNOB_FREQUENCY] = 100.0;
+	kv[KNOB_HYPERTHREADING] = 0.0;
+	additionalPoints.push_back(kv);
+
+	kv.reset();
+	kv[KNOB_VIRTUAL_CORES] = 100.0;
+	kv[KNOB_FREQUENCY] = 0.0;
+	kv[KNOB_HYPERTHREADING] = 0.0;
+	additionalPoints.push_back(kv);
+
+	kv.reset();
+	kv[KNOB_VIRTUAL_CORES] = 0.0;
+	kv[KNOB_FREQUENCY] = 0.0;
+	kv[KNOB_HYPERTHREADING] = 100.0;
+	additionalPoints.push_back(kv);
+
+	//I only need to explore on virtual cores, frequency and contexts
+	knobsFlags[KNOB_VIRTUAL_CORES] = true;
+	knobsFlags[KNOB_FREQUENCY] = true;
+	knobsFlags[KNOB_HYPERTHREADING] = true;
+	        
     }else{
         for(size_t i = 0; i < KNOB_NUM; i++){
             knobsFlags[i] = _p.isKnobEnabled((KnobType) i);

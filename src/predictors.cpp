@@ -12,7 +12,7 @@
  *  modify it under the terms of the Lesser GNU General Public
  *  License as published by the Free Software Foundation, either
  *  version 3 of the License, or (at your option) any later version.
-
+ 
  *  nornir is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -1107,6 +1107,263 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
     }
     return _values.at(realValues);
 }
+
+	/**************** PredictorSMT****************/
+
+	PredictorSMT::PredictorSMT(PredictorType type,
+				const Parameters &p,
+				const Configuration &configuration,
+				const Smoother<MonitoredSample>* samples) :
+				Predictor(type, p, configuration, samples)
+    {
+
+		//One observation per column
+		_xs2.set_size(4, 0);  //Four regressors (3 for USL/Freq + 1 for HT)
+		_xs1.set_size(3, 0);  //Three regressors (USL/Freq only)
+
+		//getting min and max clock frequency
+		_minFreq = 1;
+		if (_p.knobFrequencyEnabled) {
+			std::vector<double> frequencies = _configuration.getKnob(KNOB_FREQUENCY)->getAllowedValues();
+			_minFreq = frequencies.front();
+		}
+
+		//getting number of CPU and cores per CPU
+		mammut::topology::Topology* t = _p.mammut.getInstanceTopology();
+		_phyCoresPerCpu = t->getCpus().at(0)->getPhysicalCores().size();
+		_cpus = t->getCpus().size();
+	}
+
+        //Add (or update existing) y to _ys and x to _xs
+    void PredictorSMT::addObservation(mat& _xs,
+                       		 rowvec& _ys,
+                       		 const vec& x,
+                        	 const double y)
+    {
+        int col = -1;
+        for (size_t i = 0; i < _xs.n_cols; i++) {
+            bool found = true;
+
+            for (size_t j = 0; j < _xs.n_rows; j++)
+            {
+                found &= (x(j) == _xs(j, i));
+            }
+
+            if (found) {
+                col = i;
+                break;
+            }
+        }
+        if (col == -1) {
+            _xs.insert_cols(_xs.n_cols, x);
+            _ys.resize(_ys.size() + 1);
+            _ys.at(_ys.size() - 1) = y;
+        }
+        else {
+            _ys.at(col) = y;
+        }
+    }
+
+    double PredictorSMT::getSigma(double numCores, double freq) const
+    {
+        return ((numCores - 1) * _minFreqCoresExtime * _minFreq / (numCores*freq));
+    }
+
+    double PredictorSMT::getKi(double numCores, double freq) const
+    {
+        return ((numCores - 1) * _minFreqCoresExtime * _minFreq / (freq));
+    }
+
+    double PredictorSMT::getGamma(double numCores, double freq) const
+    {
+        return (_minFreqCoresExtime*_minFreq / (numCores*freq));
+    }
+
+    double PredictorSMT::getHT(double numContexts) const
+    {
+        return (1 / numContexts) - 1;
+    }
+
+	void PredictorSMT::refine() {
+		double numContexts = _configuration.getKnob(KNOB_HYPERTHREADING)->getRealValue();
+		double numCores = (_configuration.getKnob(KNOB_VIRTUAL_CORES)->getRealValue()) / numContexts;
+		double executionTime = 1.0 /(getMaximumThroughput());
+		double power = getCurrentPower();
+		double freq = 1.0;
+		double nActiveCpu = ceil(numCores / _phyCoresPerCpu);
+
+		if (_p.knobFrequencyEnabled) {
+			freq = _configuration.getKnob(KNOB_FREQUENCY)->getRealValue();
+		}
+
+		switch (_type) {
+		case PREDICTION_THROUGHPUT: {
+		    if (numContexts == 1)
+			{
+			if (numCores == 1 && freq == _minFreq)
+			    _minFreqCoresExtime = executionTime;
+
+			vec x1(3);
+			x1(0) = getSigma(numCores, freq);
+			x1(1) = getKi(numCores, freq);
+			x1(2) = getGamma(numCores, freq);
+
+			addObservation(_xs1, _ys1, x1, executionTime);
+
+			}
+
+			vec x2(4);
+			x2(0) = getSigma(numCores, freq);
+			x2(1) = getKi(numCores, freq);
+			x2(2) = getGamma(numCores, freq);
+			x2(3) = getHT(numContexts);
+
+			addObservation(_xs2, _ys2, x2, executionTime);
+
+		}break;
+		case PREDICTION_POWER: {
+
+			double fullCPUvoltage = getVoltage(_p.archData.voltageTable, _phyCoresPerCpu, freq);
+
+			vec x(4);
+			x(0) = (_cpus - nActiveCpu) * getVoltage(_p.archData.voltageTable, 0, freq); //Static power of inutilized cpus
+			x(1) = nActiveCpu * fullCPUvoltage; //Static power of fully utilized cpus
+			x(2) = nActiveCpu * fullCPUvoltage * fullCPUvoltage* freq *_phyCoresPerCpu; //Dynamic power of fully utilized cpus
+			x(3) = 1 - (1 / numContexts); //Hyper Threading power overhead
+
+			addObservation(_xs2, _ys2, x, power);
+
+		}break;
+		default: {
+			throw std::runtime_error("Unknown predictor type.");
+		}
+		}
+
+		_preparationNeeded = true;
+	}
+	bool PredictorSMT::readyForPredictions() {
+		
+		uint minPoints = 6;
+		return _xs2.n_cols >= minPoints;
+
+	}
+	void PredictorSMT::prepareForPredictions() {
+		if (_preparationNeeded) {
+			if (!readyForPredictions()) {
+				throw std::runtime_error("PredictorSMT: Not yet ready for predictions.");
+			}
+
+			switch (_type) {
+			case PREDICTION_THROUGHPUT: {
+
+				//Regression for USL/Freq only
+				_lr1 = new LinearRegression(_xs1, _ys1, 30.1, true);
+
+				mat usl_freq = _xs2.submat(0, 0, _xs2.n_rows - 2, _xs2.n_cols - 1);
+				mat ht = _xs2.submat(_xs2.n_rows - 1, 0, _xs2.n_rows - 1, _xs2.n_cols - 1);
+				vec extime_noht(_xs2.n_cols);
+
+				//Using trained model to obtain data needed for the second regression
+				_lr1->Predict(usl_freq, extime_noht);
+
+				rowvec extime_ht(_xs2.n_cols);
+				for (size_t i = 0; i < _xs2.n_cols; i++) extime_ht(i) = _ys2(i) / extime_noht(i);
+
+				//Regression for HT
+				_lr2 = new LinearRegression(ht, extime_ht, 0.04, true);
+
+			}break;
+			case PREDICTION_POWER: {
+
+				_lr2 = new LinearRegression(_xs2, _ys2, 0, true);
+
+			}break;
+			default: {
+				throw std::runtime_error("Unknown predictor type.");
+			}
+			}
+
+			_preparationNeeded = false;
+		}
+	}
+
+	double PredictorSMT::predict(const KnobsValues& knobValues)
+	{
+		const KnobsValues realValues = _configuration.getRealValues(knobValues);
+
+		double numContexts = realValues[KNOB_HYPERTHREADING];
+		double numCores = (realValues[KNOB_VIRTUAL_CORES]) / numContexts;
+		double freq = 1;
+		double nActiveCpu = ceil(numCores / _phyCoresPerCpu);
+
+
+		if (_p.knobFrequencyEnabled) {
+			freq = realValues[KNOB_FREQUENCY];
+		}
+
+		switch (_type) {
+		case PREDICTION_THROUGHPUT: {
+
+			mat usl_freq(3, 1);
+			usl_freq(0, 0) = getSigma(numCores, freq);
+			usl_freq(1, 0) = getKi(numCores, freq);
+			usl_freq(2, 0) = getGamma(numCores, freq);
+
+			vec extime_noht(1);
+
+			_lr1->Predict(usl_freq, extime_noht);
+
+			mat ht(1, 1);
+			ht(0, 0) = getHT(numContexts);
+			vec extime_ht(1);
+
+			_lr2->Predict(ht, extime_ht);
+
+			extime_ht(0) *= extime_noht(0);
+
+			return (1/extime_ht(0));
+
+
+		}break;
+		case PREDICTION_POWER: {
+
+			double fullCPUvoltage = getVoltage(_p.archData.voltageTable, _phyCoresPerCpu, freq);
+
+			mat p_regr(4, 1);
+			p_regr(0, 0) = (_cpus - nActiveCpu) * getVoltage(_p.archData.voltageTable, 0, freq);
+			p_regr(1, 0) = nActiveCpu * fullCPUvoltage;
+			p_regr(2, 0) = nActiveCpu * fullCPUvoltage * fullCPUvoltage* freq *_phyCoresPerCpu;
+			p_regr(3, 0) = 1 - (1 / numContexts);
+
+			vec power_ht(1);
+
+			_lr2->Predict(p_regr, power_ht);
+
+			return power_ht(0);
+
+		}break;
+		default: {
+			throw std::runtime_error("Unknown predictor type.");
+		}
+		}
+
+	}
+
+	void PredictorSMT::clear() {
+		if (_type == PREDICTION_THROUGHPUT) delete _lr1;
+		delete _lr2;
+
+		_xs1.reset();	_xs2.reset();
+		_ys1.reset();	_ys2.reset();
+
+		_xs2.set_size(4, 0);
+		_xs1.set_size(3, 0);
+
+	}
+
+	PredictorSMT::~PredictorSMT() {
+		clear();
+	}
 
 }
 

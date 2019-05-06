@@ -12,7 +12,7 @@
  *  modify it under the terms of the Lesser GNU General Public
  *  License as published by the Free Software Foundation, either
  *  version 3 of the License, or (at your option) any later version.
-
+ 
  *  nornir is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -516,54 +516,78 @@ public:
 };
 
 /**
- * @brief The PredictoSMT class
- */
-class PredictorSMT: public Predictor{
+* @brief The PredictoSMT class
+*/
+class PredictorSMT : public Predictor {
+private:
+
+	arma::mat _xs1;
+	arma::mat _xs2;
+	arma::rowvec _ys1;
+	arma::rowvec _ys2;
+	mlpack::regression::LinearRegression* _lr1;
+	mlpack::regression::LinearRegression* _lr2;
+	bool _preparationNeeded;
+	double _minFreq;
+	double _minFreqCoresExtime;
+	uint _cpus;
+	uint _phyCoresPerCpu;
+
+	double getSigma(double numCores, double freq) const;
+	double getKi(double numCores, double freq) const;
+	double getGamma(double numCores, double freq) const;
+	double getHT (double numContexts) const;
+		void addObservation(arma::mat& _xs,
+		    arma::rowvec& _ys,
+		    const arma::vec& x,
+		    const double y);
+
 public:
-    PredictorSMT(PredictorType type,
-                 const Parameters& p,
-                 const Configuration& configuration,
-                 const Smoother<MonitoredSample>* samples);
+	PredictorSMT(PredictorType type,
+		const Parameters& p,
+		const Configuration& configuration,
+		const Smoother<MonitoredSample>* samples);
 
-    ~PredictorSMT();
+	~PredictorSMT();
 
-    /**
-     * Returns true if the predictor is ready to make prediction.
-     * If false is returned, we need to refine the model with
-     * more points.
-     * @return true if the predictor is ready to make prediction,
-     *         false otherwise.
-     */
-    bool readyForPredictions();
+	/**
+	 * Returns true if the predictor is ready to make prediction.
+	 * If false is returned, we need to refine the model with
+	 * more points.
+	 * @return true if the predictor is ready to make prediction,
+	 *         false otherwise.
+	 */
+	bool readyForPredictions();
 
-    /**
-     * Clears the predictor removing all the collected
-     * data
-     */
-    void clear();
+	/**
+	 * Clears the predictor removing all the collected
+	 * data
+	 */
+	void clear();
 
-    /**
-     * If possible, refines the model with the information
-     * obtained on the current configuration.
-     */
-    void refine();
+	/**
+	 * If possible, refines the model with the information
+	 * obtained on the current configuration.
+	 */
+	void refine();
 
-    /**
-     * Prepare the predictor to accept a set of prediction requests.
-     * ATTENTION: If it is already ready to perform predictions, nothing should
-     *            be done.
-     */
-    void prepareForPredictions();
+	/**
+	 * Prepare the predictor to accept a set of prediction requests.
+	 * ATTENTION: If it is already ready to perform predictions, nothing should
+	 *            be done.
+	 */
+	void prepareForPredictions();
 
-    /**
-     * Predicts the value at specific knobs values.
-     * @param values The values.
-     * @return The predicted value at a specific combination of real knobs values.
-     */
-    double predict(const KnobsValues& realValues);
+	/**
+	 * Predicts the value at specific knobs values.
+	 * @param values The values.
+	 * @return The predicted value at a specific combination of real knobs values.
+	 */
+	double predict(const KnobsValues& realValues);
 };
 
 }
 
 
 #endif /* NORNIR_PREDICTORS_HPP_ */
+

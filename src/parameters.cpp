@@ -674,13 +674,14 @@ ParametersValidation Parameters::validateSelector(){
         knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_HYPERTHREADING] = false;
         knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_CLKMOD] = false;
         // SMT
-        knobsSupportPower[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_VIRTUAL_CORES] = true;
-        knobsSupportPower[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_FREQUENCY] = true;
-        knobsSupportPower[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_MAPPING] = false;
-        knobsSupportPower[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_HYPERTHREADING] = true;
-        knobsSupportPower[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_CLKMOD] = false;
+        knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_VIRTUAL_CORES] = true;
+        knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_FREQUENCY] = true;
+        knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_MAPPING] = false;
+        knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_HYPERTHREADING] = true;
+        knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_CLKMOD] = false;
 
         // Check if the knob enabled can be managed by the predictors specified.
+
         for(size_t i = 0; i < KNOB_NUM; i++){
             if(_knobEnabled[i] && (!knobsSupportPerformance[strategyPredictionPerformance][i] ||
                                   !knobsSupportPower[strategyPredictionPower][i])){
@@ -747,12 +748,14 @@ template<> char const* enumStrings<StrategyPredictionPerformance>::data[] = {
     "USL",
     "USLP",
     "LEO",
+    "SMT",
     "NUM" // <- Must always be the last
 };
 
 template<> char const* enumStrings<StrategyPredictionPower>::data[] = {
     "LINEAR",
     "LEO",
+    "SMT",
     "NUM" // <- Must always be the last
 };
 

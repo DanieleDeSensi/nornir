@@ -155,10 +155,10 @@ class Logger{
 private:
     unsigned int _timeOffset;
 protected:
-    unsigned int _startMonitoring;
+    double _startMonitoring;
 
-    unsigned int getRelativeTimestamp();
-    unsigned int getAbsoluteTimestamp();
+    double getRelativeTimestamp();
+    double getAbsoluteTimestamp();
 public:
     explicit Logger(unsigned int timeOffset = 0);
     virtual ~Logger(){;}

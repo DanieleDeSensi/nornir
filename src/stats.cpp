@@ -48,12 +48,12 @@ using namespace mammut::topology;
 Logger::Logger(unsigned int timeOffset):
     _timeOffset(timeOffset), _startMonitoring(0){;}
 
-unsigned int Logger::getAbsoluteTimestamp(){
+double Logger::getAbsoluteTimestamp(){
     return mammut::utils::getMillisecondsTime();
 }
 
-unsigned int Logger::getRelativeTimestamp(){
-    unsigned int absolute = getAbsoluteTimestamp();
+double Logger::getRelativeTimestamp(){
+    double absolute = getAbsoluteTimestamp();
     if(!_startMonitoring){
         _startMonitoring = absolute;
     }

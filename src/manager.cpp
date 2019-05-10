@@ -918,9 +918,20 @@ ManagerFastFlowPipeline::~ManagerFastFlowPipeline(){
     }
 }
 
-static bool isValidAllocation(std::vector<ff_farm<>*> farms, std::vector<double> allowedValues){
+// Checks if it is a valid allocation and, if not, fixes it.
+static bool fixValidAllocation(std::vector<ff_farm<>*> farms, std::vector<double>& allowedValues){
     for(size_t i = 0; i < farms.size(); i++){
         if(allowedValues[i] > farms[i]->getWorkers().size()){
+            allowedValues[i] = farms[i]->getWorkers().size();
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool areEqualAllocations(std::vector<double> allocation_first, std::vector<double>& allocation_second){
+    for(size_t i = 0; i < allocation_first.size(); i++){
+        if(allocation_first[i] != allocation_second[i]){
             return false;
         }
     }
@@ -999,8 +1010,8 @@ void ManagerFastFlowPipeline::waitForStart(){
 
     double minThr = std::numeric_limits<double>::max();
     double sndMinThr = std::numeric_limits<double>::max();
-    while(numWorkers < allowedTotalWorkers &&
-          isValidAllocation(farms, _allowedValues.back())){
+    bool finished = false;
+    while(numWorkers < allowedTotalWorkers && !finished){
         minThr = std::numeric_limits<double>::max();
         sndMinThr = std::numeric_limits<double>::max();
         for(size_t i = 0; i < _activeWorkers.size(); i++){
@@ -1019,31 +1030,41 @@ void ManagerFastFlowPipeline::waitForStart(){
         tmp[bottleneckId] = newNumWorkers;
         monitoredData[bottleneckId].throughput = monitoredData[bottleneckId].throughput * 
                                                  (newNumWorkers / oldNumWorkers); 
-        _allowedValues.push_back(tmp);
+
+        bool validAllocation = true;
+        if(!fixValidAllocation(farms, tmp)){
+            finished = true;
+            if(!_allowedValues.empty() && areEqualAllocations(tmp, _allowedValues.back())){
+                validAllocation = false;
+            }
+        }
+
+        if(validAllocation){
+            _allowedValues.push_back(tmp);
 
 #ifdef DEBUG_MANAGER
-        std::cout << "----New Pre-Calibration List Element----" << std::endl;
-        DEBUG("MinThr: " << minThr << " SndMinThr: " << sndMinThr);
-        std::cout << "OldThroughputs: ";
-        for(auto d : monitoredData){
-            std::cout << d.throughput << " ";
-        }
-        std::cout << std::endl;
+            std::cout << "----New Pre-Calibration List Element----" << std::endl;
+            DEBUG("MinThr: " << minThr << " SndMinThr: " << sndMinThr);
+            std::cout << "OldThroughputs: ";
+            for(auto d : monitoredData){
+                std::cout << d.throughput << " ";
+            }
+            std::cout << std::endl;
 
-        std::cout << "Alloc: ";
-        for(auto d : tmp){
-            std::cout << d << " ";
-        }
-        std::cout << std::endl;
-        std::cout << "----------------------------------------" << std::endl;
+            std::cout << "Alloc: ";
+            for(auto d : tmp){
+                std::cout << d << " ";
+            }
+            std::cout << std::endl;
+            std::cout << "----------------------------------------" << std::endl;
 #endif
         
-        numWorkers = 0;
-        for(double x : tmp){
-            numWorkers += x;
+            numWorkers = 0;
+            for(double x : tmp){
+                numWorkers += x;
+            }
         }
     }
-    _allowedValues.pop_back(); // Remove last allocation since it uses too many cores.
     DEBUG("Pre-calibration terminated.");
     
     // Ok now configuration can be created.

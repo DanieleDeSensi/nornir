@@ -75,6 +75,7 @@ Selector::Selector(const Parameters& p,
         _calibrationAllowed(false),
         _totalTasks(0){
     _joulesCounter = _localMammut.getInstanceEnergy()->getCounter();
+    _numPhyCores = _p.mammut.getInstanceTopology()->getPhysicalCores().size();    
     //TODO Fare meglio con mammut
     //TODO Assicurarsi che il numero totale di configurazioni possibili sia maggiore del numero minimo di punti
 #if 0
@@ -265,7 +266,32 @@ double Selector::initBestSuboptimalValue() const{
     return 0;
 }
 
+bool Selector::areKnobsValid(const KnobsValues& kv){
+  if(!_p.knobHyperthreadingEnabled){
+    return true;
+  }else{
+    double valueVC = kv[KNOB_VIRTUAL_CORES], valueHT = kv[KNOB_HYPERTHREADING];
 
+    if(!kv.areReal()){
+      Knob* kVC = _configuration.getKnob(KNOB_VIRTUAL_CORES);
+      Knob* kHT = _configuration.getKnob(KNOB_HYPERTHREADING);    
+      if(!kVC->getRealFromRelative(kv[KNOB_VIRTUAL_CORES], valueVC)){
+	return false;
+      }
+      if(!kHT->getRealFromRelative(kv[KNOB_HYPERTHREADING], valueHT)){
+	return false;
+      }
+    }
+
+    if(valueVC / valueHT <= _numPhyCores &&
+       (int) valueVC % (int) valueHT == 0){
+      return true;
+    }else{
+      return false;
+    }
+  }
+}
+    
 SelectorManualCli::SelectorManualCli(const Parameters& p,
                const Configuration& configuration,
                const Smoother<MonitoredSample>* samples):
@@ -555,6 +581,10 @@ KnobsValues SelectorPredictive::getBestKnobsValues(){
 
     const vector<KnobsValues>& combinations = _configuration.getAllRealCombinations();
     for(const KnobsValues& currentValues : combinations){
+        if(!areKnobsValid(currentValues)){
+	    continue;
+	}
+	
         double throughputPrediction = getThroughputPrediction(currentValues);
         double powerPrediction = getPowerPrediction(currentValues);
         double utilizationPrediction = _bandwidthIn->average() /
@@ -572,10 +602,11 @@ KnobsValues SelectorPredictive::getBestKnobsValues(){
         _powerPredictions[currentValues] = powerPrediction;
 #endif
 
+#if 1
         DEBUG("Prediction: " << currentValues << " "
                              << throughputPrediction << " "
                              << powerPrediction);
-
+#endif
         if(isFeasibleThroughput(throughputPrediction, true) &&
            isFeasibleLatency(0, true) &&
            isFeasibleUtilization(utilizationPrediction, true) &&
@@ -687,6 +718,17 @@ bool SelectorLearner::isAccurate(){
         return true;
     }
 }
+
+KnobsValues SelectorLearner::getNextMeaningfulKnobsValues(Explorer* explorer){
+  while(true){
+    KnobsValues kv = explorer->nextRelativeKnobsValues();
+    if(areKnobsValid(kv)){
+      return kv;
+    }
+  }
+  throw std::runtime_error("No valid knobs. This situation should never happen!");
+}
+  
 
 bool SelectorPredictive::isBestSolutionFeasible() const{
     return _feasible;
@@ -877,12 +919,6 @@ SelectorLearner::SelectorLearner(const Parameters& p,
 	kv.reset();
 	kv[KNOB_VIRTUAL_CORES] = 100.0;
 	kv[KNOB_FREQUENCY] = 0.0;
-	kv[KNOB_HYPERTHREADING] = 0.0;
-	additionalPoints.push_back(kv);
-
-	kv.reset();
-	kv[KNOB_VIRTUAL_CORES] = 0.0;
-	kv[KNOB_FREQUENCY] = 0.0;
 	kv[KNOB_HYPERTHREADING] = 100.0;
 	additionalPoints.push_back(kv);
 
@@ -975,7 +1011,7 @@ KnobsValues SelectorLearner::getNextKnobsValues(){
 
     if(isCalibrating()){
         if(!predictorsReady()){
-            kv = _explorer->nextRelativeKnobsValues();
+   	    kv = getNextMeaningfulKnobsValues(_explorer);
             ++_numCalibrationPoints;
         }else{
             if(predictionsDone() && accurate){
@@ -988,7 +1024,7 @@ KnobsValues SelectorLearner::getNextKnobsValues(){
                 // since the next one will be (hopefully) the definitive
                 // configuration.
             }else{
-                kv = _explorer->nextRelativeKnobsValues();
+	        kv = getNextMeaningfulKnobsValues(_explorer);
                 updatePredictions(kv);
                 ++_numCalibrationPoints;
             }
@@ -1000,7 +1036,7 @@ KnobsValues SelectorLearner::getNextKnobsValues(){
         if(phaseChanged()){
             /******************* Phase change. *******************/
             _explorer->reset();
-            kv = _explorer->nextRelativeKnobsValues();
+            kv = getNextMeaningfulKnobsValues(_explorer);
 
             // Drop old models.
             clearPredictors();
@@ -1029,7 +1065,7 @@ KnobsValues SelectorLearner::getNextKnobsValues(){
                  ((!accurate && _accuracyViolations > _p.tolerableSamples) ||
                   (isBestSolutionFeasible() && !_forced && contractViolated && _contractViolations > _p.tolerableSamples))){
             /******************* More calibration points. *******************/
-            kv = _explorer->nextRelativeKnobsValues();
+	    kv = getNextMeaningfulKnobsValues(_explorer); 
             updatePredictions(kv);
             refine();
             ++_totalCalPoints;

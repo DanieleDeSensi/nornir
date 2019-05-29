@@ -48,6 +48,7 @@ private:
     double _totalCalibrationTime;
     bool _calibrating;
     bool _ignoreViolations;
+    uint _numPhyCores;  
 protected:
     const Parameters& _p;
     const Configuration& _configuration;
@@ -119,6 +120,8 @@ protected:
      * Starts the recording of calibration stats.
      */
     void startCalibration();
+
+    bool areKnobsValid(const KnobsValues& kv);  
 public:
     Selector(const Parameters& p,
              const Configuration& configuration,
@@ -466,11 +469,13 @@ private:
     bool _updatingInterference;
     std::vector<KnobsValues> _interferenceUpdatePoints;
 
+    KnobsValues getNextMeaningfulKnobsValues(Explorer* explorer);
+  
     std::unique_ptr<Predictor> getPredictor(PredictorType type,
                                             const Parameters& p,
                                             const Configuration& configuration,
                                             const Smoother<MonitoredSample>* samples) const;
-
+    
     /**
      * Starts producing data in order to update the models by
      * considering that another application is interfering with

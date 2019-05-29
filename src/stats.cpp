@@ -81,6 +81,7 @@ LoggerStream::LoggerStream(std::ostream *statsStream,
     *_statsStream << "TimestampMillisecs" << "\t";
     *_statsStream << "[VirtualCores]" << "\t";
     *_statsStream << "Workers" << "\t";
+    *_statsStream << "HT" << "\t";
     *_statsStream << "Frequency" << "\t";
     *_statsStream << "ClkModEmulated" << "\t";
     *_statsStream << "CurrentThroughput" << "\t";
@@ -132,6 +133,8 @@ void LoggerStream::log(bool isCalibrationPhase,
     *_statsStream << "]" << "\t";
 
     *_statsStream << configuration.getRealValue(KNOB_VIRTUAL_CORES) << "\t";
+    *_statsStream << configuration.getRealValue(KNOB_HYPERTHREADING) << "\t";
+    
     Frequency frequency = configuration.getRealValue(KNOB_FREQUENCY);
 
     // Print frequency as string to avoid conversion to exp notation.

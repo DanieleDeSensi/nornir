@@ -437,6 +437,7 @@ private:
     uint _cpus;
     uint _domains;
 
+protected:
     double getScalingFactor(const KnobsValues& values);
     double getPowerPrediction(const KnobsValues& values);
 public:
@@ -449,12 +450,29 @@ public:
 
     void prepareForPredictions();
 
-    double predict(const KnobsValues& values);
+    virtual double predict(const KnobsValues& values);
 
     void refine();
 
     void clear();
 };
+
+/*
+ * Represents a simple predictor. It works only for application that
+ * exhibits good scalability and do not use hyperthreading.
+ * Differently from PredictorAnalytical, it can predict the exact value
+ * of power consumption rather than an estimation preserving the relative order.
+ * Accordingly, it can be used for power bounded contracts.
+ */
+class PredictorAnalyticalFull: public PredictorAnalytical{
+public:
+    PredictorAnalyticalFull(PredictorType type,
+                        const Parameters& p,
+                        const Configuration& configuration,
+                        const Smoother<MonitoredSample>* samples);
+    double predict(const KnobsValues& values);
+};
+
 
 /**
  * Applies the algorithm described in:

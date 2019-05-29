@@ -437,6 +437,19 @@ public:
 };
 
 /**
+ * Selector described in PPAM2019 paper.
+ */
+class SelectorAnalyticalFull: public SelectorPredictive{
+public:
+    SelectorAnalyticalFull(const Parameters& p,
+                       const Configuration& configuration,
+                       const Smoother<MonitoredSample>* samples);
+
+    KnobsValues getNextKnobsValues();
+    virtual void updateBandwidthIn();
+};
+
+/**
  * A generic online learner selector.
  */
 class SelectorLearner: public SelectorPredictive{

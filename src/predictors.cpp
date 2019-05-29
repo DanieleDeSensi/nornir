@@ -945,6 +945,32 @@ double PredictorAnalytical::predict(const KnobsValues& values){
     return 0.0;
 }
 
+PredictorAnalyticalFull::PredictorAnalyticalFull(PredictorType type,
+                                         const Parameters &p,
+                                         const Configuration &configuration,
+                                         const Smoother<MonitoredSample>* samples):
+    PredictorAnalytical(type, p, configuration, samples) {
+    ;
+}
+
+double PredictorAnalyticalFull::predict(const KnobsValues& values){
+    switch(_type){
+        case PREDICTION_THROUGHPUT:{
+            return PredictorAnalytical::predict(values);
+        }break;
+        case PREDICTION_POWER:{
+            if(_configuration.equal(values)){
+                return getCurrentPower();
+            }else{
+                double scalingFactor = getPowerPrediction(_configuration.getRealValues()) / (getCurrentPower() - _p.archData.idlePower);
+                return _p.archData.idlePower + (getPowerPrediction(values) / scalingFactor);
+            }
+        }break;
+    }
+    return 0.0;
+}
+
+
 
 PredictorLeo::PredictorLeo(PredictorType type,
               const Parameters &p,

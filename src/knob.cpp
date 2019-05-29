@@ -523,6 +523,9 @@ KnobMappingExternal::KnobMappingExternal(const Parameters& p,
 }
 
 void KnobMappingExternal::setPid(pid_t pid){
+    if(_processHandler){
+        _p.mammut.getInstanceTask()->releaseProcessHandler(_processHandler);
+    }
     setProcessHandler(_p.mammut.getInstanceTask()->getProcessHandler(pid));
 }
 

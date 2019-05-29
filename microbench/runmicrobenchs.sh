@@ -33,6 +33,7 @@ CONFPATH_VERFILE=$CONFPATH_ROOT"/nornir/version.csv"
 
 if grep $CURRENT_VERSION "$CONFPATH_VERFILE" >/dev/null 2>&1 && \
    grep "ticksPerNs" "$CONFPATH_FILE" >/dev/null 2>&1 && \
+   grep "idlePower" "$CONFPATH_FILE" >/dev/null 2>&1 && \
    [ -f $CONFPATH_VOLTAGE ] && \
    [ -f $CONFPATH_FILE ]; 
 then
@@ -56,6 +57,10 @@ else
 		fi
 		cp voltageTable.txt $CONFPATH_VOLTAGE
 	fi
+
+        # Idle power
+        echo -n "    " >> $CONFPATH_FILE
+        ./idlePower >> $CONFPATH_FILE
 	
 	# Footer
 	echo "</archData>" >> $CONFPATH_FILE

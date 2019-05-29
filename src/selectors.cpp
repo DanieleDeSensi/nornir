@@ -559,6 +559,7 @@ KnobsValues SelectorPredictive::getBestKnobsValues(){
         double powerPrediction = getPowerPrediction(currentValues);
         double utilizationPrediction = _bandwidthIn->average() /
                                        throughputPrediction * 100.0;
+        bool bestKnobsSet = false;
         // Skip negative predictions
         if(throughputPrediction < 0 ||
            powerPrediction < 0 ||
@@ -582,12 +583,14 @@ KnobsValues SelectorPredictive::getBestKnobsValues(){
            isFeasiblePower(powerPrediction, true)){
             _feasible = true;
             if(isBestMinMax(throughputPrediction, 0, utilizationPrediction,
-                            powerPrediction, bestValue)){
+                            powerPrediction, bestValue) ||
+               !bestKnobsSet){
 #ifdef DEBUG_SELECTORS
                 bestThroughputPrediction = throughputPrediction;
                 bestPowerPrediction = powerPrediction;
 #endif
                 bestKnobs = currentValues;
+                bestKnobsSet = true;
             }
         }else if(isBestSuboptimal(throughputPrediction, 0, utilizationPrediction,
                                   powerPrediction, bestSuboptimalValue)){
@@ -705,6 +708,7 @@ SelectorAnalytical::SelectorAnalytical(const Parameters& p,
 KnobsValues SelectorAnalytical::getNextKnobsValues(){
     _previousConfiguration = _configuration.getRealValues();
     KnobsValues kv;
+
     if(!_firstPointGenerated){
         kv = getBestKnobsValues();
     }
@@ -750,6 +754,32 @@ void SelectorAnalytical::updateBandwidthIn(){
         ;
     }
 }
+
+SelectorAnalyticalFull::SelectorAnalyticalFull(const Parameters& p,
+                                       const Configuration& configuration,
+                                       const Smoother<MonitoredSample>* samples):
+    SelectorPredictive(p, configuration, samples,
+                       std::unique_ptr<Predictor>(new PredictorAnalytical(PREDICTION_THROUGHPUT, p, configuration, samples)),
+                       std::unique_ptr<Predictor>(new PredictorAnalyticalFull(PREDICTION_POWER, p, configuration, samples))){
+    ;
+}
+
+KnobsValues SelectorAnalyticalFull::getNextKnobsValues(){
+    _previousConfiguration = _configuration.getRealValues();
+    return getBestKnobsValues(); 
+}
+
+void SelectorAnalyticalFull::updateBandwidthIn(){
+    // For this selector we do not consider input bandwidth for contracts
+    // different from the utilization one.                                                                                                                                                                        
+    if(isPrimaryRequirement(_p.requirements.minUtilization)){
+        Selector::updateBandwidthIn();
+    }else{
+        ;
+    }
+}
+
+
 
 std::unique_ptr<Predictor> SelectorLearner::getPredictor(PredictorType type,
                                                          const Parameters& p,

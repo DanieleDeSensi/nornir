@@ -41,7 +41,7 @@ using mammut::Communicator;
 using mammut::Mammut;
 using mammut::utils::enumStrings;
 
-#define CONFIGURATION_VERSION "1.0.0"
+#define CONFIGURATION_VERSION "1.1.0"
 #define CONFPATH_LEN_MAX 512
 #define CONFFILE_VERSION "/version.csv"
 #define CONFFILE_ARCH "/archdata.xml"
@@ -196,6 +196,7 @@ void XmlTree::getEnum(const char* valueName, T& value){
 void ArchData::loadXml(const string& archFileName){
     XmlTree xc(archFileName, "archData");
     SETVALUE(xc, Double, ticksPerNs);
+    SETVALUE(xc, Double, idlePower);
     SETVALUE(xc, Double, monitoringCost);
 }
 
@@ -573,6 +574,13 @@ ParametersValidation Parameters::validateSelector(){
     knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL][KNOB_HYPERTHREADING] = false;
     knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL][KNOB_CLKMOD] = false;
 
+    // ANALYTICAL_FULL
+    knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_VIRTUAL_CORES] = true;
+    knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_FREQUENCY] = true;
+    knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_MAPPING] = false;
+    knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_HYPERTHREADING] = false;
+    knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_CLKMOD] = false;
+
     // FULLSEARCH
     knobsSupportSelector[STRATEGY_SELECTION_FULLSEARCH][KNOB_VIRTUAL_CORES] = true;
     knobsSupportSelector[STRATEGY_SELECTION_FULLSEARCH][KNOB_FREQUENCY] = true;
@@ -733,10 +741,11 @@ template<> char const* enumStrings<StrategyUnusedVirtualCores>::data[] = {
 };
 
 template<> char const* enumStrings<StrategySelection>::data[] = {
-	"MANUAL_CLI",
+    "MANUAL_CLI",
     "MANUAL_WEB",
     "LEARNING",
     "ANALYTICAL",
+    "ANALYTICAL_FULL",
     "FULLSEARCH",
     "LIMARTINEZ",
     "LEO",

@@ -26,9 +26,10 @@
  */
 
 #include "configuration.hpp"
+#include <iostream>
 
 #ifdef DEBUG_CONFIGURATION
-#define DEBUG(x) do { cerr << "[Configuration] " << x << endl; } while (0)
+#define DEBUG(x) do { std::cerr << "[Configuration] " << x << std::endl; } while (0)
 #define DEBUGB(x) do {x;} while(0)
 #else
 #define DEBUG(x)

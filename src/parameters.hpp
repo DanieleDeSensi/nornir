@@ -52,7 +52,9 @@
  *             strategySelection = STRATEGY_SELECTION_LIMARTINEZ
  *         and also with
  *             knobMappingEnabled = false
- *
+ * - PPAM2019:
+ *         strategySelection = STRATEGY_SELECTION_ANALYTICAL_FULL
+ *         knobMappingEnabled = false
  */
 
 
@@ -139,6 +141,9 @@ typedef enum{
 
     // Applies a simple analytical model.
     STRATEGY_SELECTION_ANALYTICAL,
+
+    // Applies a simple analytical model (to predict both power and performance).
+    STRATEGY_SELECTION_ANALYTICAL_FULL,
 
     // Tries all the configurations in order to find the best one.
     STRATEGY_SELECTION_FULLSEARCH,
@@ -462,12 +467,16 @@ typedef struct ArchData{
     // Number of ticks for a nanosecond.
     double ticksPerNs;
 
+    // Idle power (Watts)
+    double idlePower;
+
     // Number of ticks spent by a worker to reply to a monitoring request.
     double monitoringCost;
 
     mammut::cpufreq::VoltageTable voltageTable;
 
     ArchData():ticksPerNs(0),
+               idlePower(0),
                monitoringCost(0){;}
 
     void loadXml(const std::string& archFileName);

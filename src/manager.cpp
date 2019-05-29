@@ -407,6 +407,9 @@ Selector* Manager::createSelector() const{
             case STRATEGY_SELECTION_ANALYTICAL:{
                 return new SelectorAnalytical(_p, *_configuration, _samples);
             }break;
+            case STRATEGY_SELECTION_ANALYTICAL_FULL:{
+               return new SelectorAnalyticalFull(_p, *_configuration, _samples);
+            }break;
             case STRATEGY_SELECTION_LEARNING:{
                 return new SelectorLearner(_p, *_configuration, _samples);
             }break;
@@ -705,9 +708,9 @@ void ManagerBlackBox::waitForStart(){
         }
     }
     _startTime = getMillisecondsTime();
-    dynamic_cast<KnobMappingExternal*>(_configuration->getKnob(KNOB_MAPPING))->setProcessHandler(_process);
+    dynamic_cast<KnobMappingExternal*>(_configuration->getKnob(KNOB_MAPPING))->setPid(_process->getId());
     if(_p.clockModulationEmulated){
-        dynamic_cast<KnobClkModEmulated*>(_configuration->getKnob(KNOB_CLKMOD))->setProcessHandler(_process);
+        dynamic_cast<KnobClkModEmulated*>(_configuration->getKnob(KNOB_CLKMOD))->setPid(_process->getId());
     }
     _process->resetInstructions(); // To remove those executed before entering ROI
 }
@@ -724,9 +727,9 @@ MonitoredSample ManagerBlackBox::getSample(){
         _terminated = true;
         return sample;
     }
-    _process->getAndResetInstructions(instructions);
+    assert(_process->getAndResetInstructions(instructions));
     sample.throughput = instructions / ((getMillisecondsTime() - _lastStoredSampleMs) / 1000.0);
-    sample.latency = -1; // Not used.
+    sample.latency = sample.throughput; // We set it only for phase detection purposes.
     sample.loadPercentage = 100.0; // We do not know what's the input bandwidth.
     sample.numTasks = instructions; // We consider a task to be an instruction.
     return sample;

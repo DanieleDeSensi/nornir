@@ -578,7 +578,7 @@ KnobsValues SelectorPredictive::getBestKnobsValues(){
     //double bestSuboptimalLatencyPrediction = 0;
     double bestSuboptimalPowerPrediction = 0;
 #endif
-
+    bool bestKnobsSet = false;
     const vector<KnobsValues>& combinations = _configuration.getAllRealCombinations();
     for(const KnobsValues& currentValues : combinations){
         if(!areKnobsValid(currentValues)){
@@ -589,7 +589,7 @@ KnobsValues SelectorPredictive::getBestKnobsValues(){
         double powerPrediction = getPowerPrediction(currentValues);
         double utilizationPrediction = _bandwidthIn->average() /
                                        throughputPrediction * 100.0;
-        bool bestKnobsSet = false;
+
         // Skip negative predictions
         if(throughputPrediction < 0 ||
            powerPrediction < 0 ||

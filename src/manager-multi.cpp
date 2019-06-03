@@ -25,6 +25,7 @@
  * =========================================================================
  */
 
+#if 0
 #include "manager-multi.hpp"
 #include "external/mammut/mammut/mammut.hpp"
 
@@ -575,3 +576,5 @@ void ManagerMulti::run(){
 }
 
 } // End namespace
+
+#endif

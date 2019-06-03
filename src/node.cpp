@@ -28,8 +28,7 @@
 #include "./node.hpp"
 #include "./utils.hpp"
 
-#include "external/mammut/mammut/module.hpp"
-#include "external/mammut/mammut/utils.hpp"
+#include <mammut/mammut.hpp>
 
 #include <fstream>
 #include <streambuf>
@@ -75,7 +74,7 @@ void AdaptiveNode::initPreRun(const Parameters p, NodeType nodeType,
                               volatile bool* terminated,
                               ff::ff_thread* ffThread){
     _p = p;
-    _tasksManager = _p.mammut.getInstanceTask();
+    _tasksManager = _p.mammut->getInstanceTask();
     if(!_tasksManager){
         throw runtime_error("Node init(): impossible to "
                             "get the tasks manager.");

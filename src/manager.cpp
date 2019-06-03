@@ -32,6 +32,7 @@
 #include "./predictors.hpp"
 #include "./node.hpp"
 #include "./utils.hpp"
+#include "./selectors.hpp"
 
 #include "external/mammut/mammut/module.hpp"
 #include "external/mammut/mammut/utils.hpp"
@@ -75,6 +76,14 @@ static Parameters& validate(Parameters& p){
     return p;
 }
 
+static std::vector<AdaptiveNode*> convertWorkers(ff::svector<ff::ff_node*> w){
+    std::vector<AdaptiveNode*> r;
+    for(size_t i = 0; i < w.size(); i++){
+        r.push_back(dynamic_cast<AdaptiveNode*>(w[i]));
+    }
+    return r;
+}
+
 Manager::Manager(Parameters nornirParameters):
         _terminated(false),
         _p(validate(nornirParameters)),
@@ -111,16 +120,16 @@ Manager::Manager(Parameters nornirParameters):
     }
     DEBUGB(samplesFile.open("samples.csv"));
 
-    _topology = _p.mammut.getInstanceTopology(); 
-    _cpufreq = _p.mammut.getInstanceCpuFreq();
+    _topology = _p.mammut->getInstanceTopology(); 
+    _cpufreq = _p.mammut->getInstanceCpuFreq();
     if(!_toSimulate){
         // We cannot create energy and task modules
         // since they are not simulated by mammut
-        _counter = _p.mammut.getInstanceEnergy()->getCounter(COUNTER_CPUS);
+        _counter = _p.mammut->getInstanceEnergy()->getCounter(COUNTER_CPUS);
 	if(!_counter){
-	  _counter = _p.mammut.getInstanceEnergy()->getCounter(COUNTER_PLUG);	  
+	  _counter = _p.mammut->getInstanceEnergy()->getCounter(COUNTER_PLUG);	  
 	}
-        _task = _p.mammut.getInstanceTask();
+        _task = _p.mammut->getInstanceTask();
     }
     DEBUG("Mammut handlers created.");
 
@@ -170,8 +179,7 @@ void Manager::run(){
     _lastStoredSampleMs = getMillisecondsTime();
 
     /* Force the first calibration point. **/
-    KnobsValues kv = decide();
-    act(kv);
+    decideAndAct();
 
     if(!_toSimulate){
         ThreadHandler* thisThread = _task->getProcessHandler(getpid())->getThreadHandler(gettid());
@@ -207,8 +215,7 @@ void Manager::run(){
 
             if(!persist()){
                 DEBUG("Asking selector.");
-                KnobsValues kv = decide();
-                act(kv);
+                decideAndAct();
                 startSample = getMillisecondsTime();
             }
         }else{
@@ -511,22 +518,21 @@ void Manager::observe(){
     }
 }
 
-KnobsValues Manager::decide(){
+void Manager::decideAndAct(bool force){
+    KnobsValues kv;
     if(!_configuration->knobsChangeNeeded()){
-        return _configuration->getRealValues();
+        kv = _configuration->getRealValues();
+    }else{
+        if(_totalTasks){
+            // We need to update the input bandwidth only if we already processed
+            // some tasks.  By doing this check, we avoid updating bandwidth for
+            // the first forced reconfiguration.
+            _selector->updateBandwidthIn();
+            _selector->updateTotalTasks(_totalTasks);
+        }
+        kv = _selector->getNextKnobsValues();
     }
 
-    if(_totalTasks){
-        // We need to update the input bandwidth only if we already processed
-        // some tasks.  By doing this check, we avoid updating bandwidth for
-        // the first forced reconfiguration.
-        _selector->updateBandwidthIn();
-        _selector->updateTotalTasks(_totalTasks);
-    }
-    return _selector->getNextKnobsValues();
-}
-
-void Manager::act(KnobsValues kv, bool force){
     if(force || !_configuration->equal(kv)){
         _configuration->setValues(kv);
         postConfigurationManagement();
@@ -668,7 +674,7 @@ void ManagerInstrumented::stretchPause(){
 }
 
 ManagerBlackBox::ManagerBlackBox(pid_t pid, Parameters nornirParameters):
-        Manager(nornirParameters), _process(nornirParameters.mammut.getInstanceTask()->getProcessHandler(pid)){
+        Manager(nornirParameters), _process(nornirParameters.mammut->getInstanceTask()->getProcessHandler(pid)){
     Manager::_pid = pid;
     Manager::_configuration = new ConfigurationExternal(_p);
     // For blackbox application we do not care if synchronous of not
@@ -944,7 +950,7 @@ static bool areEqualAllocations(std::vector<double> allocation_first, std::vecto
 void ManagerFastFlowPipeline::waitForStart(){
     std::vector<KnobVirtualCoresFarm*> farmsKnobs;
     std::vector<ff_farm<>*> farms;
-    double allowedTotalWorkers = _p.mammut.getInstanceTopology()->getVirtualCores().size();
+    double allowedTotalWorkers = _p.mammut->getInstanceTopology()->getVirtualCores().size();
     for(size_t i = 0; i < _pipe->getStages().size(); i++){
         if(_farmsFlags[i]){
             ff_farm<>* realFarm = dynamic_cast<ff_farm<>*>(_pipe->getStages()[i]);
@@ -1154,5 +1160,17 @@ void ManagerFastFlowPipeline::postConfigurationManagement(){
     _activeWorkers = newWorkers;
 }
 
+ManagerTest::ManagerTest(Parameters nornirParameters, uint numthreads):Manager(nornirParameters){
+    //TODO: Avoid this initialization phase which is common to all the managers.
+    Manager::_configuration = new ConfigurationExternal(_p);
+    dynamic_cast<KnobVirtualCores*>(_configuration->getKnob(KNOB_VIRTUAL_CORES))->changeMax(numthreads);
+    // For instrumented application we do not care if synchronous of not
+    // (we count iterations).
+    _p.synchronousWorkers = false;
+}
+
+void ManagerTest::waitForStart(){
+    dynamic_cast<KnobMappingExternal*>(_configuration->getKnob(KNOB_MAPPING))->setPid(getpid());
+}
 
 }

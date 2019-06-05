@@ -60,10 +60,10 @@
 #include <vector>
 #include <cmath>
 #include <functional>
-#include <ff/lb.hpp>
-#include <ff/node.hpp>
-#include <ff/farm.hpp>
-#include <ff/spin-lock.hpp>
+#include <nornir/external/fastflow/ff/lb.hpp>
+#include <nornir/external/fastflow/ff/node.hpp>
+#include <nornir/external/fastflow/ff/farm.hpp>
+#include <nornir/external/fastflow/ff/spin-lock.hpp>
 
 enum {FF_AUTO=-1};
 

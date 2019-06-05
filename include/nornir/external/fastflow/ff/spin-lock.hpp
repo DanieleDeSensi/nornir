@@ -42,9 +42,9 @@
 #define FF_SPINLOCK_HPP
 
 // This code requires a c++11 compiler 
-#include <ff/sysdep.h>
-#include <ff/platforms/platform.h>
-#include <ff/config.hpp>
+#include <nornir/external/fastflow/ff/sysdep.h>
+#include <nornir/external/fastflow/ff/platforms/platform.h>
+#include <nornir/external/fastflow/ff/config.hpp>
 
 
 #if (__cplusplus >= 201103L) || (defined __GXX_EXPERIMENTAL_CXX0X__) || (defined(HAS_CXX11_VARIADIC_TEMPLATES))
@@ -181,10 +181,10 @@ static inline void spin_unlock(clh_lock_t l, const int pid) { l->spin_unlock(pid
 // -------------------------------------
 
 // REW -- documentation
-//#include <ff/sysdep.h>
-//#include <ff/platforms/platform.h>
-//#include <ff/config.hpp>
-#include <ff/mpmc/asm/abstraction_dcas.h>
+//#include <nornir/external/fastflow/ff/sysdep.h>
+//#include <nornir/external/fastflow/ff/platforms/platform.h>
+//#include <nornir/external/fastflow/ff/config.hpp>
+#include <nornir/external/fastflow/ff/mpmc/asm/abstraction_dcas.h>
 
 // NOTE: A better check would be needed !
 // both GNU g++ and Intel icpc define __GXX_EXPERIMENTAL_CXX0X__ if -std=c++0x or -std=c++11 is used 

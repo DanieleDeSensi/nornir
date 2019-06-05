@@ -54,12 +54,12 @@
 #include <vector>
 #include <algorithm>
 #include <memory>
-#include <ff/platforms/platform.h>
-#include <ff/lb.hpp>
-#include <ff/gt.hpp>
-#include <ff/node.hpp>
-#include <ff/multinode.hpp>
-#include <ff/fftree.hpp>
+#include <nornir/external/fastflow/ff/platforms/platform.h>
+#include <nornir/external/fastflow/ff/lb.hpp>
+#include <nornir/external/fastflow/ff/gt.hpp>
+#include <nornir/external/fastflow/ff/node.hpp>
+#include <nornir/external/fastflow/ff/multinode.hpp>
+#include <nornir/external/fastflow/ff/fftree.hpp>
 
 #ifdef NORNIR_NEW_FF_API_SUPPORT
 namespace nornir{
@@ -1911,7 +1911,7 @@ protected:
 
 #if (__cplusplus >= 201103L) || (defined __GXX_EXPERIMENTAL_CXX0X__) || (defined(HAS_CXX11_VARIADIC_TEMPLATES))
 
-#include <ff/make_unique.hpp>
+#include <nornir/external/fastflow/ff/make_unique.hpp>
 
 template<typename IN_t=char, typename OUT_t=IN_t>
 class ff_Farm: public ff_farm<> {

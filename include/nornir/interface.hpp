@@ -28,7 +28,7 @@
 #ifndef NORNIR_INTERFACE_HPP_
 #define NORNIR_INTERFACE_HPP_
 
-#include "manager.hpp"
+#include <nornir/manager-ff.hpp>
 
 #include <cstddef>
 #include <queue>

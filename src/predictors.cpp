@@ -30,10 +30,10 @@
  * \brief Predictors used by adaptive farm.
  */
 
-#include "predictors.hpp"
-#include "manager.hpp"
+#include <nornir/predictors.hpp>
+#include <nornir/manager.hpp>
 
-#include "external/mammut/mammut/cpufreq/cpufreq.hpp"
+#include <mammut/cpufreq/cpufreq.hpp>
 
 #undef DEBUG
 #undef DEBUGB

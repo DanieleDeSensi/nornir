@@ -69,7 +69,7 @@
 #include <sstream>
 #include <map>
 #include <vector>
-//#include <ff/atomic/atomic.h>
+//#include <nornir/external/fastflow/ff/atomic/atomic.h>
 #include <atomic>
 
 namespace ff {

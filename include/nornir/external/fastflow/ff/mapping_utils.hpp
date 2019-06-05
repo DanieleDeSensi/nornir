@@ -43,8 +43,8 @@
 
 #include <iosfwd>
 #include <errno.h>
-#include <ff/config.hpp>
-#include <ff/utils.hpp>
+#include <nornir/external/fastflow/ff/config.hpp>
+#include <nornir/external/fastflow/ff/utils.hpp>
 #if defined(__linux__)
  #include <sched.h>
  #include <sys/types.h>
@@ -75,7 +75,7 @@
  // If you don't include mach/mach.h, it doesn't work.
  // In theory mach/thread_policy.h should be enough
 #elif defined(_WIN32)
- #include <ff/platforms/platform.h>
+ #include <nornir/external/fastflow/ff/platforms/platform.h>
 #endif
 #if defined(__APPLE__) && MAC_OS_X_HAS_AFFINITY
 #include<vector> 

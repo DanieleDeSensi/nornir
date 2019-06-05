@@ -33,7 +33,7 @@
 #ifndef NORNIR_UTILS_HPP_
 #define NORNIR_UTILS_HPP_
 
-#include <riff.hpp>
+#include <riff/riff.hpp>
 
 #include <algorithm>
 #include <fstream>

@@ -35,8 +35,8 @@
 #include <ostream>
 #include <vector>
 #include <set>
-#include <ff/node.hpp>
-#include <ff/platforms/platform.h>
+#include <nornir/external/fastflow/ff/node.hpp>
+#include <nornir/external/fastflow/ff/platforms/platform.h>
 #include <mutex>
 
 namespace ff {

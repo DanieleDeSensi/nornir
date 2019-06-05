@@ -55,8 +55,8 @@
 
 #include <iosfwd>
 #include <vector>
-#include <ff/node.hpp>
-#include <ff/parallel_for.hpp>
+#include <nornir/external/fastflow/ff/node.hpp>
+#include <nornir/external/fastflow/ff/parallel_for.hpp>
 
 namespace ff {
 

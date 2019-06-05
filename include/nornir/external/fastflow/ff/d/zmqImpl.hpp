@@ -37,8 +37,8 @@
 #include <vector>
 #include <assert.h>
 #include "zmq.hpp"
-#include <ff/svector.hpp>
-#include <ff/d/zmqTransport.hpp>
+#include <nornir/external/fastflow/ff/svector.hpp>
+#include <nornir/external/fastflow/ff/d/zmqTransport.hpp>
 
 namespace ff {
 

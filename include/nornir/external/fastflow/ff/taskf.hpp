@@ -32,8 +32,8 @@
  *
  */
 #include <algorithm> 
-#include <ff/farm.hpp>
-#include <ff/task_internals.hpp>
+#include <nornir/external/fastflow/ff/farm.hpp>
+#include <nornir/external/fastflow/ff/task_internals.hpp>
 
 namespace ff {
 

@@ -2,7 +2,7 @@
 #define __RPR_DPE
 
 #include <string>
-#include <ff/node.hpp>
+#include <nornir/external/fastflow/ff/node.hpp>
 
 namespace rpr {
 

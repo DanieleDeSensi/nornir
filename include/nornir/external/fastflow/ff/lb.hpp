@@ -36,8 +36,8 @@
 #include <iosfwd>
 #include <deque>
 
-#include <ff/utils.hpp>
-#include <ff/node.hpp>
+#include <nornir/external/fastflow/ff/utils.hpp>
+#include <nornir/external/fastflow/ff/node.hpp>
 
 namespace ff {
 

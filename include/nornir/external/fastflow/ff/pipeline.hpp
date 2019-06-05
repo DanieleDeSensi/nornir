@@ -32,10 +32,10 @@
 #include <cassert>
 #include <memory>
 #include <functional>
-#include <ff/svector.hpp>
-#include <ff/fftree.hpp>
-#include <ff/node.hpp>
-#include <ff/ocl/clEnvironment.hpp>
+#include <nornir/external/fastflow/ff/svector.hpp>
+#include <nornir/external/fastflow/ff/fftree.hpp>
+#include <nornir/external/fastflow/ff/node.hpp>
+#include <nornir/external/fastflow/ff/ocl/clEnvironment.hpp>
 #if defined(MAMMUT)
 #include <mammut/mammut.hpp>
 #endif
@@ -852,7 +852,7 @@ private:
     // ------------------------ high-level (simpler) pipeline ------------------
 #if ((__cplusplus >= 201103L) || (defined __GXX_EXPERIMENTAL_CXX0X__)) || (defined(HAS_CXX11_VARIADIC_TEMPLATES))
 
-#include <ff/make_unique.hpp>
+#include <nornir/external/fastflow/ff/make_unique.hpp>
 
     /*! 
      * \class ff_Pipe

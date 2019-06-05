@@ -25,18 +25,18 @@
  * =========================================================================
  */
 
-#include "manager.hpp"
+#include <nornir/manager-ff.hpp>
 
-#include "./ffincs.hpp"
-#include "./parameters.hpp"
-#include "./predictors.hpp"
-#include "./node.hpp"
-#include "./utils.hpp"
-#include "./selectors.hpp"
+#include <nornir/ffincs.hpp>
+#include <nornir/parameters.hpp>
+#include <nornir/predictors.hpp>
+#include <nornir/node.hpp>
+#include <nornir/utils.hpp>
+#include <nornir/selectors.hpp>
 
-#include "external/mammut/mammut/module.hpp"
-#include "external/mammut/mammut/utils.hpp"
-#include "external/mammut/mammut/mammut.hpp"
+#include <mammut/module.hpp>
+#include <mammut/utils.hpp>
+#include <mammut/mammut.hpp>
 
 #include <cmath>
 #include <iostream>

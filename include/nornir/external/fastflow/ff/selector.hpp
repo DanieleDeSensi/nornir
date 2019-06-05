@@ -39,7 +39,7 @@
 
 #include <memory>
 #include <vector>
-#include <ff/node.hpp>
+#include <nornir/external/fastflow/ff/node.hpp>
 
 namespace ff {
 

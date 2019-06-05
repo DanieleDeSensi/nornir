@@ -31,7 +31,7 @@
  ****************************************************************************
  */
 
-#include <ff/map.hpp>
+#include <nornir/external/fastflow/ff/map.hpp>
 
 namespace ff {
 

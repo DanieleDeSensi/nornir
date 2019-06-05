@@ -25,12 +25,12 @@
  * =========================================================================
  */
 
-#include "knob.hpp"
-#include "parameters.hpp"
+#include <nornir/knob.hpp>
+#include <nornir/parameters.hpp>
 
-#include "external/mammut/mammut/mammut.hpp"
-#include "external/mammut/mammut/utils.hpp"
-#include "external/mammut/mammut/cpufreq/cpufreq.hpp"
+#include <mammut/mammut.hpp>
+#include <mammut/utils.hpp>
+#include <mammut/cpufreq/cpufreq.hpp>
 
 #include <algorithm>
 #include <cmath>

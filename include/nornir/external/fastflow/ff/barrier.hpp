@@ -30,9 +30,9 @@
  */
 
 #include <stdlib.h>
-#include <ff/platforms/platform.h>
-#include <ff/utils.hpp>
-#include <ff/config.hpp>
+#include <nornir/external/fastflow/ff/platforms/platform.h>
+#include <nornir/external/fastflow/ff/utils.hpp>
+#include <nornir/external/fastflow/ff/config.hpp>
 
 // 
 // Inside FastFlow barriers are used only for:

@@ -34,9 +34,9 @@
 #endif
 
 #include <vector>
-#include <ff/node.hpp>
-#include <ff/pipeline.hpp>
-#include <ff/stencilReduceCUDA.hpp>
+#include <nornir/external/fastflow/ff/node.hpp>
+#include <nornir/external/fastflow/ff/pipeline.hpp>
+#include <nornir/external/fastflow/ff/stencilReduceCUDA.hpp>
 
 namespace ff {
 

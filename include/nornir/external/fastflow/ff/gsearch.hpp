@@ -32,7 +32,7 @@
 #include <bitset>
 #include <algorithm>
 
-#include <ff/farm.hpp>
+#include <nornir/external/fastflow/ff/farm.hpp>
 
 namespace ff {
 

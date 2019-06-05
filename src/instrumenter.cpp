@@ -37,10 +37,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "parameters.hpp"
-#include "instrumenter.h"
-#include "instrumenter.hpp"
-#include "external/mammut/mammut/mammut.hpp"
+#include <nornir/parameters.hpp>
+#include <nornir/instrumenter.h>
+#include <nornir/instrumenter.hpp>
+#include <mammut/mammut.hpp>
 
 #undef DEBUG
 #undef DEBUGB

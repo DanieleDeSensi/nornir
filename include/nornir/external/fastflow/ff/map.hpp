@@ -38,7 +38,7 @@
 // both GNU g++ and Intel icpc define __GXX_EXPERIMENTAL_CXX0X__ if -std=c++0x or -std=c++11 is used 
 // (icpc -E -dM -std=c++11 -x c++ /dev/null | grep GXX_EX)
 #if (__cplusplus >= 201103L) || (defined __GXX_EXPERIMENTAL_CXX0X__) || (defined(HAS_CXX11_AUTO) && defined(HAS_CXX11_LAMBDA))
-#include <ff/parallel_for.hpp>
+#include <nornir/external/fastflow/ff/parallel_for.hpp>
 #else
 #error "C++ >= 201103L is required to use ff_Map"
 #endif

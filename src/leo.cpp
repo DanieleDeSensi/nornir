@@ -4,7 +4,7 @@
  * Energy Under Performance Constraints" by Mishra, Nikita and Zhang, Huazhe and Lafferty, John D. and Hoffmann, Henry.
  **/
 
-#include "leo.h"
+#include <nornir/leo.h>
 
 using namespace std;
 using namespace arma;

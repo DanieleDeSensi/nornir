@@ -33,8 +33,8 @@
  */
 
 #include <stdlib.h>
-#include <ff/buffer.hpp>
-#include <ff/sysdep.h>
+#include <nornir/external/fastflow/ff/buffer.hpp>
+#include <nornir/external/fastflow/ff/sysdep.h>
 #include <assert.h>
 
 namespace ff {

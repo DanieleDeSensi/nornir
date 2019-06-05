@@ -99,12 +99,12 @@
 #include <assert.h>
 #include <algorithm>
 
-#include <ff/platforms/platform.h>
+#include <nornir/external/fastflow/ff/platforms/platform.h>
 
 // #if defined(HAVE_ATOMIC_H)
 // #include <asm/atomic.h>
 // #else 
-// #include <ff/atomic/atomic.h>
+// #include <nornir/external/fastflow/ff/atomic/atomic.h>
 // #endif
 #include <atomic>
 
@@ -114,10 +114,10 @@
 
 
 //#include <pthread.h>
-#include <ff/ubuffer.hpp>
-#include <ff/spin-lock.hpp>
-#include <ff/svector.hpp>
-#include <ff/utils.hpp>
+#include <nornir/external/fastflow/ff/ubuffer.hpp>
+#include <nornir/external/fastflow/ff/spin-lock.hpp>
+#include <nornir/external/fastflow/ff/svector.hpp>
+#include <nornir/external/fastflow/ff/utils.hpp>
 
 
 //#define DEBUG_ALLOCATOR 1

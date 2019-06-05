@@ -32,9 +32,9 @@
  ****************************************************************************
  */
 
-#include <ff/node.hpp>
-#include <ff/lb.hpp>
-#include <ff/gt.hpp>
+#include <nornir/external/fastflow/ff/node.hpp>
+#include <nornir/external/fastflow/ff/lb.hpp>
+#include <nornir/external/fastflow/ff/gt.hpp>
 
 namespace ff {
 

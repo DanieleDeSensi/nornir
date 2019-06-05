@@ -30,9 +30,9 @@
  */
 
 #include <stdlib.h>
-#include <ff/svector.hpp>
-#include <ff/utils.hpp>
-#include <ff/mapping_utils.hpp>
+#include <nornir/external/fastflow/ff/svector.hpp>
+#include <nornir/external/fastflow/ff/utils.hpp>
+#include <nornir/external/fastflow/ff/mapping_utils.hpp>
 #include <vector>
 #if defined(MAMMUT)
 #include <mammut/mammut.hpp>
@@ -48,7 +48,7 @@
 #include <OpenCL/opencl.h>
 #else
 #include <CL/opencl.h>
-#include <ff/ocl/clEnvironment.hpp>
+#include <nornir/external/fastflow/ff/ocl/clEnvironment.hpp>
 #endif
 
 

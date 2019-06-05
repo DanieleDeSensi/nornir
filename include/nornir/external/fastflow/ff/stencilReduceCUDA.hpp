@@ -35,8 +35,8 @@
 // FF_CUDA must be defined in order to use this code!!!!
 #ifdef FF_CUDA
 #include <cuda.h>
-#include <ff/mapper.hpp>
-#include <ff/node.hpp>
+#include <nornir/external/fastflow/ff/mapper.hpp>
+#include <nornir/external/fastflow/ff/node.hpp>
 #include <cmath>
 #include <iostream>
 

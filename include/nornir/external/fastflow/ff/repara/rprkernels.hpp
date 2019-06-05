@@ -51,14 +51,14 @@
 #include <map>
 #include <cassert>
 #include <cstdlib>
-#include <ff/node.hpp>
-#include <ff/selector.hpp>
-#include <ff/map.hpp>               // CPU map
-#include <ff/stencilReduceOCL.hpp>  // GPU map
-#include <ff/tpcnode.hpp>           // TPC devices
-#include <ff/pipeline.hpp>          // pipeline
-#include <ff/farm.hpp>              // task-ffarm 
-#include <ff/repara/baseKernelTask.hpp>    // repara base task
+#include <nornir/external/fastflow/ff/node.hpp>
+#include <nornir/external/fastflow/ff/selector.hpp>
+#include <nornir/external/fastflow/ff/map.hpp>               // CPU map
+#include <nornir/external/fastflow/ff/stencilReduceOCL.hpp>  // GPU map
+#include <nornir/external/fastflow/ff/tpcnode.hpp>           // TPC devices
+#include <nornir/external/fastflow/ff/pipeline.hpp>          // pipeline
+#include <nornir/external/fastflow/ff/farm.hpp>              // task-ffarm 
+#include <nornir/external/fastflow/ff/repara/baseKernelTask.hpp>    // repara base task
 
 
 #if defined(ENERGY_MEASUREMENT)
@@ -77,7 +77,7 @@ using namespace ff;
 
 #if defined(DPE_PROTOCOL)
 #define DPE(X) X
-#include <ff/repara/dpe.hpp>
+#include <nornir/external/fastflow/ff/repara/dpe.hpp>
 #else 
 #define DPE(X)
 #define NO_DPE_SCHEDULE 1

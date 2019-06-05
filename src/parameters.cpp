@@ -25,8 +25,8 @@
  * =========================================================================
  */
 
-#include "parameters.hpp"
-#include "utils.hpp"
+#include <nornir/parameters.hpp>
+#include <nornir/utils.hpp>
 
 #include <mammut/mammut.hpp>
 #include <cstring>

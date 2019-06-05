@@ -7,7 +7,7 @@
  */
 
 
-#include <ff/platforms/liblfds.h>
+#include <nornir/external/fastflow/ff/platforms/liblfds.h>
 
 // ------------------------------ abstraction_dcas.c file --------------------------------
 

@@ -36,7 +36,7 @@
 //#include <unistd.h> // Not availbe on windows - to be managed
 #include <iosfwd>
 //#if (defined(_MSC_VER) || defined(__INTEL_COMPILER)) && defined(_WIN32)
-#include <ff/platforms/platform.h>
+#include <nornir/external/fastflow/ff/platforms/platform.h>
 //#else
 //#include <pthread.h>
 //#include <sys/time.h>
@@ -46,8 +46,8 @@
 #include <string>
 #include <fstream>
 
-#include <ff/cycle.h>
-#include <ff/spin-lock.hpp>
+#include <nornir/external/fastflow/ff/cycle.h>
+#include <nornir/external/fastflow/ff/spin-lock.hpp>
 
 namespace ff {
 

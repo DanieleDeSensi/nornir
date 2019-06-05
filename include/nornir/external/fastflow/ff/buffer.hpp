@@ -55,16 +55,16 @@
 #include <cstdlib>
 #include <cstring>
 //#include <atomic>
-//#include <ff/atomic/abstraction_dcas.h>
+//#include <nornir/external/fastflow/ff/atomic/abstraction_dcas.h>
 
-#include <ff/sysdep.h>
-#include <ff/config.hpp>
+#include <nornir/external/fastflow/ff/sysdep.h>
+#include <nornir/external/fastflow/ff/config.hpp>
 
 #if defined(__APPLE__)
 #include <AvailabilityMacros.h>
 #endif
 
-#include <ff/platforms/platform.h>
+#include <nornir/external/fastflow/ff/platforms/platform.h>
 
 namespace ff {
 

@@ -35,15 +35,15 @@
 #include <stdlib.h>
 #include <iosfwd>
 #include <functional>
-#include <ff/platforms/platform.h>
-#include <ff/cycle.h>
-#include <ff/utils.hpp>
-#include <ff/buffer.hpp>
-#include <ff/ubuffer.hpp>
-#include <ff/mapper.hpp>
-#include <ff/config.hpp>
-#include <ff/svector.hpp>
-#include <ff/barrier.hpp>
+#include <nornir/external/fastflow/ff/platforms/platform.h>
+#include <nornir/external/fastflow/ff/cycle.h>
+#include <nornir/external/fastflow/ff/utils.hpp>
+#include <nornir/external/fastflow/ff/buffer.hpp>
+#include <nornir/external/fastflow/ff/ubuffer.hpp>
+#include <nornir/external/fastflow/ff/mapper.hpp>
+#include <nornir/external/fastflow/ff/config.hpp>
+#include <nornir/external/fastflow/ff/svector.hpp>
+#include <nornir/external/fastflow/ff/barrier.hpp>
 #include <atomic>
 
 static void *GO_ON        = (void*)ff::FF_GO_ON;

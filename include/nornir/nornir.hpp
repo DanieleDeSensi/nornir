@@ -34,7 +34,6 @@
 #include "interface.hpp"
 #include "instrumenter.hpp"
 #include "manager.hpp"
-#include "manager-multi.hpp"
 #include "stats.hpp"
 
 #endif // NORNIR_HPP_

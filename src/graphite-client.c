@@ -8,7 +8,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "graphite-client.h"
+#include <nornir/graphite-client.h>
 
 #define MAX_MSG_PATH 100
 #define MAX_MSG_LEN_PLAIN 130

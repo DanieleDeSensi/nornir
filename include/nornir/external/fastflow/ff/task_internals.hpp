@@ -39,7 +39,7 @@
 #include <vector>
 #include <deque>
 #include <queue>
-#include <ff/allocator.hpp>
+#include <nornir/external/fastflow/ff/allocator.hpp>
 #include "icl_hash.h"
 
 namespace ff {

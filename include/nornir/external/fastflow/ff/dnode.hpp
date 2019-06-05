@@ -45,14 +45,14 @@
 #include <stdint.h>
 #include <cstdlib>
 #include <vector>
-#include <ff/platforms/platform.h>
+#include <nornir/external/fastflow/ff/platforms/platform.h>
 #if !defined(_WIN32)
  #include <sys/uio.h>
 #endif
-#include <ff/d/zmqTransport.hpp>
-#include <ff/d/zmqImpl.hpp>
-#include <ff/node.hpp>
-#include <ff/svector.hpp>
+#include <nornir/external/fastflow/ff/d/zmqTransport.hpp>
+#include <nornir/external/fastflow/ff/d/zmqImpl.hpp>
+#include <nornir/external/fastflow/ff/node.hpp>
+#include <nornir/external/fastflow/ff/svector.hpp>
 
 
 namespace ff {

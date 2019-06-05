@@ -29,9 +29,9 @@
 #define NORNIR_INSTRUMENTER_HPP_
 
 #include "utils.hpp"
-#include <riff.hpp>
-#include <external/cppnanomsg/nn.hpp>
-#include <external/nanomsg/src/pair.h>
+#include <riff/riff.hpp>
+#include <riff/external/cppnanomsg/nn.hpp>
+#include <riff/external/nanomsg/src/pair.h>
 #include <mammut/mammut.hpp>
 
 namespace nornir{

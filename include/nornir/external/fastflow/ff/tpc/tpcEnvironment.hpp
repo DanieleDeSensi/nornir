@@ -51,8 +51,8 @@
 #include <pthread.h>
 #include <atomic>
 
-#include <ff/utils.hpp>
-#include <ff/tpc/tpc_api.h>
+#include <nornir/external/fastflow/ff/utils.hpp>
+#include <nornir/external/fastflow/ff/tpc/tpc_api.h>
 using namespace rpr;
 using namespace tpc;
 

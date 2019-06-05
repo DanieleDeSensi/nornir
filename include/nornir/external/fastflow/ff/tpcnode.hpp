@@ -47,12 +47,12 @@
 
 #include <vector>
 #include <algorithm>
-#include <ff/node.hpp>
-#include <ff/bitflags.hpp>
+#include <nornir/external/fastflow/ff/node.hpp>
+#include <nornir/external/fastflow/ff/bitflags.hpp>
 
-#include <ff/tpc/tpcEnvironment.hpp>
-#include <ff/tpcallocator.hpp>
-#include <ff/tpc/tpc_api.h>
+#include <nornir/external/fastflow/ff/tpc/tpcEnvironment.hpp>
+#include <nornir/external/fastflow/ff/tpcallocator.hpp>
+#include <nornir/external/fastflow/ff/tpc/tpc_api.h>
 using namespace rpr;
 using namespace tpc;
 

@@ -40,8 +40,8 @@
 
 #include <cassert>
 #include <map>
-#include <ff/tpc/tpcEnvironment.hpp>
-#include <ff/tpc/tpc_api.h>
+#include <nornir/external/fastflow/ff/tpc/tpcEnvironment.hpp>
+#include <nornir/external/fastflow/ff/tpc/tpc_api.h>
 
 using namespace rpr;
 using namespace tpc;

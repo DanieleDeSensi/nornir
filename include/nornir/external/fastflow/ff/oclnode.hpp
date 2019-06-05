@@ -46,8 +46,8 @@
 #ifndef FF_OCLNODE_HPP
 #define FF_OCLNODE_HPP
 
-#include <ff/ocl/clEnvironment.hpp>
-#include <ff/node.hpp>
+#include <nornir/external/fastflow/ff/ocl/clEnvironment.hpp>
+#include <nornir/external/fastflow/ff/node.hpp>
 #include <vector>
 
 namespace ff{

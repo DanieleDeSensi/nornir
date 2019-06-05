@@ -43,11 +43,11 @@
 #include <fstream>
 #include <tuple>
 #include <algorithm>
-#include <ff/bitflags.hpp>
-#include <ff/oclnode.hpp>
-#include <ff/node.hpp>
-#include <ff/oclallocator.hpp>
-#include <ff/stencilReduceOCL_macros.hpp>
+#include <nornir/external/fastflow/ff/bitflags.hpp>
+#include <nornir/external/fastflow/ff/oclnode.hpp>
+#include <nornir/external/fastflow/ff/node.hpp>
+#include <nornir/external/fastflow/ff/oclallocator.hpp>
+#include <nornir/external/fastflow/ff/stencilReduceOCL_macros.hpp>
 
 namespace ff {
 

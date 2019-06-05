@@ -25,8 +25,8 @@
  * =========================================================================
  */
 
-#include "./node.hpp"
-#include "./utils.hpp"
+#include <nornir/node.hpp>
+#include <nornir/utils.hpp>
 
 #include <mammut/mammut.hpp>
 

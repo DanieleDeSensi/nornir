@@ -30,11 +30,11 @@
 #include <functional>
 #include <tuple>
 #include <vector>
-#include <ff/node.hpp>
-#include <ff/farm.hpp>
+#include <nornir/external/fastflow/ff/node.hpp>
+#include <nornir/external/fastflow/ff/farm.hpp>
 
 #define DONT_USE_FFALLOC 1
-#include <ff/task_internals.hpp>
+#include <nornir/external/fastflow/ff/task_internals.hpp>
 
 namespace ff{
 

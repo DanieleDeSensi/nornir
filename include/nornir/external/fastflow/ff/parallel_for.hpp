@@ -87,8 +87,8 @@
 #ifndef FF_PARFOR_HPP
 #define FF_PARFOR_HPP
 
-#include <ff/pipeline.hpp>
-#include <ff/parallel_for_internals.hpp>
+#include <nornir/external/fastflow/ff/pipeline.hpp>
+#include <nornir/external/fastflow/ff/parallel_for_internals.hpp>
 
 namespace ff {
 

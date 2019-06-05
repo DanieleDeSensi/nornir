@@ -26,7 +26,7 @@
 #define FF_DINOUT_HPP
 
 #include <cstdlib>
-#include <ff/dnode.hpp>
+#include <nornir/external/fastflow/ff/dnode.hpp>
 
 
 

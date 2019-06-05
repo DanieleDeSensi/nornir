@@ -49,12 +49,7 @@
 #define MAXPOOLSIZE 500000
 #endif
 
-PUSH_WARNING
-GCC_DISABLE_WARNING(vla)
-#include "../external/queues/MSqueue.hpp"
-POP_WARNING
-
-#define QUEUE MSQueue
+typedef struct MSQueue QUEUE;
 
 namespace nornir{
 namespace dataflow{
@@ -67,12 +62,12 @@ namespace dataflow{
  */
 class WorkerMdf: public nornir::Worker<Mdfi>{
 private:
-    QUEUE& _q;
+    QUEUE* _q;
     bool _init;
     size_t _qId;
     size_t _processedTasks;
 public:
-    explicit WorkerMdf(QUEUE& q);
+    explicit WorkerMdf(QUEUE* q);
 
     /**
      * Computes a macro data flow instruction.
@@ -89,7 +84,7 @@ public:
  */
 class Interpreter: mammut::utils::NonCopyable{
 private:
-    QUEUE _q;
+    QUEUE* _q;
     nornir::Scheduler<Mdfi>* _s;
     std::vector<WorkerMdf*> _workers;
     nornir::Farm<Mdfi>* _farm;

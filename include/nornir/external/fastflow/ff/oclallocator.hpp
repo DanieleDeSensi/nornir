@@ -43,7 +43,7 @@
 
 #include <cassert>
 #include <map>
-#include <ff/ocl/clEnvironment.hpp>
+#include <nornir/external/fastflow/ff/ocl/clEnvironment.hpp>
 
 namespace ff {
 

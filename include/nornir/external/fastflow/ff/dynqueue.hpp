@@ -43,9 +43,9 @@
 
 
 #include <stdlib.h>
-#include <ff/buffer.hpp>
-#include <ff/spin-lock.hpp> // used only for mp_push and mp_pop
-#include <ff/sysdep.h>
+#include <nornir/external/fastflow/ff/buffer.hpp>
+#include <nornir/external/fastflow/ff/spin-lock.hpp> // used only for mp_push and mp_pop
+#include <nornir/external/fastflow/ff/sysdep.h>
 
 namespace ff {
 

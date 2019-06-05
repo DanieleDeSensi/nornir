@@ -35,12 +35,12 @@
 
 #include <cstdlib>
 #include <vector>
-#include <ff/buffer.hpp>
-#include <ff/sysdep.h>
-#include <ff/allocator.hpp>
-#include <ff/platforms/platform.h>
-#include <ff/mpmc/asm/abstraction_dcas.h>
-#include <ff/spin-lock.hpp>
+#include <nornir/external/fastflow/ff/buffer.hpp>
+#include <nornir/external/fastflow/ff/sysdep.h>
+#include <nornir/external/fastflow/ff/allocator.hpp>
+#include <nornir/external/fastflow/ff/platforms/platform.h>
+#include <nornir/external/fastflow/ff/mpmc/asm/abstraction_dcas.h>
+#include <nornir/external/fastflow/ff/spin-lock.hpp>
 
  
 /*
@@ -248,7 +248,7 @@ private:
 
 
 #else  // using internal atomic operations
-#include <ff/mpmc/asm/atomic.h>
+#include <nornir/external/fastflow/ff/mpmc/asm/atomic.h>
     
 class MPMC_Ptr_Queue {
 protected:

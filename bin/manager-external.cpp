@@ -37,7 +37,8 @@
 #include <iostream>
 #include <fstream>
 #include <stdlib.h>
-#include "../src/nornir.hpp"
+#include <nornir/nornir.hpp>
+//#include <nornir/manager-multi.hpp>
 
 using namespace nornir;
 using namespace nn;
@@ -86,7 +87,7 @@ int main(int argc, char * argv[]){
     // TODO: at the moment we do not support concurrent applications.
     // In the future the value of this flag should be given by the user
     // when starts this executable.
-    bool multipleApplications = false;
+    //bool multipleApplications = false;
 
     // Create directory where the channels will be placed and 
     // set permissions so that everyone can access it.
@@ -110,11 +111,14 @@ int main(int argc, char * argv[]){
     if(system((std::string("chmod ugo+rwx ") + getInstrumentationConnectionChannelPath()).c_str()) == -1){
         throw std::runtime_error("Impossible to set permission to nornir channel.");
     }
+
+    /*
     ManagerMulti mm;
     if(multipleApplications){
         mm.start();
         DEBUG("ManagerMulti started.");
     }
+    */
 
     while(true){
         pid_t pid;
@@ -160,23 +164,25 @@ int main(int argc, char * argv[]){
         DEBUG("Manager started.");
 
         // Add to the list of running managers and to the multimanager.
+        /*
         if(multipleApplications){
             instances.push_back(ai);
             mm.addManager(ai->manager);
         }
+        */
 
         /** Try to join and delete already terminated managers. **/
         Manager* m;
         // Corunning applications.
-        if(multipleApplications){
-            m = mm.getTerminatedManager();
-        }else{
+        if(true /*!multipleApplications*/){
             // Single application.
             m = ai->manager;
             DEBUG("Joining manager.");
             m->join();
             DEBUG("Manager joined.");
             delete m;
+        }else{
+            //m = mm.getTerminatedManager();
         }
         managerCleanup(m, instances);
     }

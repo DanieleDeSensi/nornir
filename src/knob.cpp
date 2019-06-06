@@ -155,9 +155,9 @@ KnobVirtualCores::KnobVirtualCores(Parameters p):_p(p){
         numVirtualCores = _p.activeThreads;
     }else{
         if(_p.knobHyperthreadingEnabled){
-            numVirtualCores = _p.mammut->getInstanceTopology()->getVirtualCores().size();
+            numVirtualCores = _p.mammut.getInstanceTopology()->getVirtualCores().size();
         }else{
-            numVirtualCores = _p.mammut->getInstanceTopology()->getPhysicalCores().size();
+            numVirtualCores = _p.mammut.getInstanceTopology()->getPhysicalCores().size();
         }
     }
     changeMax(numVirtualCores);
@@ -367,7 +367,7 @@ std::vector<AdaptiveNode*> KnobVirtualCoresPipe::getActiveWorkers() const{
 }
 
 KnobHyperThreading::KnobHyperThreading(Parameters p){
-    vector<PhysicalCore*> physical = p.mammut->getInstanceTopology()->getPhysicalCores();
+    vector<PhysicalCore*> physical = p.mammut.getInstanceTopology()->getPhysicalCores();
     size_t maxHtLevel = physical.at(0)->getVirtualCores().size();
     for(size_t i = 0; i < maxHtLevel; i++){
         _knobValues.push_back(i + 1);
@@ -383,7 +383,7 @@ KnobMapping::KnobMapping(const Parameters& p,
          _p(p),
          _knobCores(knobCores),
          _knobHyperThreading(knobHyperThreading),
-         _topologyHandler(p.mammut->getInstanceTopology()){
+         _topologyHandler(p.mammut.getInstanceTopology()){
     for(size_t i = 0; i < MAPPING_TYPE_NUM; i++){
         _knobValues.push_back((MappingType) i);
     }
@@ -524,9 +524,9 @@ KnobMappingExternal::KnobMappingExternal(const Parameters& p,
 
 void KnobMappingExternal::setPid(pid_t pid){
     if(_processHandler){
-        _p.mammut->getInstanceTask()->releaseProcessHandler(_processHandler);
+        _p.mammut.getInstanceTask()->releaseProcessHandler(_processHandler);
     }
-    setProcessHandler(_p.mammut->getInstanceTask()->getProcessHandler(pid));
+    setProcessHandler(_p.mammut.getInstanceTask()->getProcessHandler(pid));
 }
 
 void KnobMappingExternal::setProcessHandler(task::ProcessHandler* processHandler){
@@ -588,15 +588,15 @@ void KnobMappingFarm::move(const vector<VirtualCore*>& vcOrder){
             nextIndex = (nextIndex + 1) % vcOrder.size();
         }
     }else{
-        _p.mammut->getInstanceTask()->getProcessHandler(getpid())->move(vcOrder);
+        _p.mammut.getInstanceTask()->getProcessHandler(getpid())->move(vcOrder);
     }
 }
 
 KnobFrequency::KnobFrequency(Parameters p, const KnobMapping& knobMapping):
         _p(p),
         _knobMapping(knobMapping),
-        _frequencyHandler(_p.mammut->getInstanceCpuFreq()),
-        _topologyHandler(_p.mammut->getInstanceTopology()){
+        _frequencyHandler(_p.mammut.getInstanceCpuFreq()),
+        _topologyHandler(_p.mammut.getInstanceTopology()){
     _frequencyHandler->removeTurboFrequencies();
     std::vector<mammut::cpufreq::Frequency> availableFrequencies;
     availableFrequencies = _frequencyHandler->getDomains().at(0)->getAvailableFrequencies();
@@ -719,7 +719,7 @@ void KnobFrequency::applyUnusedVCStrategy(Frequency v){
 }
 
 KnobClkMod::KnobClkMod(Parameters p, const KnobMapping& knobMapping):_knobMapping(knobMapping){
-    for(double d : p.mammut->getInstanceTopology()->getCpus().front()->getClockModulationValues()){
+    for(double d : p.mammut.getInstanceTopology()->getCpus().front()->getClockModulationValues()){
         _knobValues.push_back(d);
     }
 }
@@ -740,12 +740,12 @@ KnobClkModEmulated::KnobClkModEmulated(Parameters p):_p(p), _processHandler(NULL
 }
 
 void KnobClkModEmulated::setPid(pid_t pid){
-    setProcessHandler(_p.mammut->getInstanceTask()->getProcessHandler(pid));
+    setProcessHandler(_p.mammut.getInstanceTask()->getProcessHandler(pid));
 }
 
 void KnobClkModEmulated::setProcessHandler(task::ProcessHandler* processHandler){
     _processHandler = processHandler;
-    _p.mammut->getInstanceTask()->setThrottlingInterval(_p.clockModulationInterval);
+    _p.mammut.getInstanceTask()->setThrottlingInterval(_p.clockModulationInterval);
 }
 
 void KnobClkModEmulated::changeValue(double v){

@@ -4,7 +4,7 @@
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/include/nornir/external/fastflow)
 
-file(GLOB SOURCES "*.cpp" "*.c")
+file(GLOB SOURCES "*.cpp" "*.c" "dataflow/*.c*")
 list(REMOVE_ITEM SOURCES "${PROJECT_SOURCE_DIR}/src/ompt.cpp")
  
 ####################
@@ -12,7 +12,6 @@ list(REMOVE_ITEM SOURCES "${PROJECT_SOURCE_DIR}/src/ompt.cpp")
 ####################
 
 # Must be set before add_library
-set(EXTERNAL_INSTALL_LOCATION ${PROJECT_BINARY_DIR}/external)
 include_directories(${EXTERNAL_INSTALL_LOCATION}/include)
 link_directories(${EXTERNAL_INSTALL_LOCATION}/lib)
 
@@ -26,12 +25,14 @@ ExternalProject_Add(mammut_repo
     GIT_REPOSITORY https://github.com/danieledesensi/mammut
     GIT_TAG 02f9c7d
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+    UPDATE_COMMAND ""
 )
 
 ExternalProject_Add(riff_repo
     GIT_REPOSITORY https://github.com/danieledesensi/riff
     GIT_TAG 96aaab1
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+    UPDATE_COMMAND ""
 )
 
 # Generate protocol fields names before building
@@ -54,13 +55,19 @@ find_library(GSL_LIBRARY NAMES gsl)
 
 # Dynamic Library
 add_dependencies(nornir compile_ext mammut_repo riff_repo)
-target_link_libraries(nornir riff mammut ${MLPACK_LIBRARY} ${GSL_LIBRARY} pthread) # TODO: Check if dependencies are installed
+target_link_libraries(nornir riff mammut ${MLPACK_LIBRARY} ${GSL_LIBRARY} pthread ${PROJECT_SOURCE_DIR}/src/external/queues/hzdptr.o ${PROJECT_SOURCE_DIR}/src/external/queues/xxhash.o) # TODO: Check if dependencies are installed
 install(TARGETS nornir LIBRARY DESTINATION lib)
 
 # Static Library
 add_dependencies(nornir_static compile_ext mammut_repo riff_repo)
-target_link_libraries(nornir_static riff_static mammut_static ${MLPACK_LIBRARY} ${GSL_LIBRARY} pthread) # TODO: Check if dependencies are installed
+target_link_libraries(nornir_static riff_static mammut_static ${MLPACK_LIBRARY} ${GSL_LIBRARY} pthread ${PROJECT_SOURCE_DIR}/src/external/queues/hzdptr.o ${PROJECT_SOURCE_DIR}/src/external/queues/xxhash.o) # TODO: Check if dependencies are installed
 install(TARGETS nornir_static ARCHIVE DESTINATION lib)
+
+# Install dependencies
+install(DIRECTORY ${EXTERNAL_INSTALL_LOCATION}/lib DESTINATION .)
+install(DIRECTORY ${EXTERNAL_INSTALL_LOCATION}/include DESTINATION .)
+
+
 
 ####################
 # Uninstall target #

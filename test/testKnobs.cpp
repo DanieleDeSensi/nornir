@@ -7,7 +7,8 @@
 #include <stdlib.h>
 #include <time.h>
 #include <sstream>
-#include "../src/nornir.hpp"
+#include <nornir/nornir.hpp>
+#include <nornir/trigger.hpp>
 #include "gtest/gtest.h"
 
 using namespace nornir;

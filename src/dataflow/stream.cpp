@@ -25,9 +25,12 @@
  * =========================================================================
  */
 
-#include "stream.hpp"
+#include <nornir/dataflow/stream.hpp>
 
-#include "../external/mammut/mammut/mammut.hpp"
+#include <mammut/mammut.hpp>
+
+#include <sys/types.h>
+#include <unistd.h>
 
 #undef DEBUG
 #undef DEBUGB
@@ -79,8 +82,7 @@ InputStreamRate::InputStreamRate(const std::string& fileName):
         _currBurstSize(0), _def(0), _terminated(false),
         _nextObject(0), _nextBurst(0), _excess(0), _lastStoredRateTs(0){
     _clockThread = new ClockThread(_lastSec, _terminated);
-    FILE* f = NULL;
-    f = fopen(fileName.c_str(), "r");
+    FILE* f = fopen(fileName.c_str(), "r");
     float rate = 0;
     float duration = 0;
     if(f){

@@ -44,8 +44,11 @@
 #undef bitset
 #endif 
 
+//PUSH_WARNING
+//GCC_DISABLE_WARNING(deprecated-declarations)
 #include <mlpack/core.hpp>
 #include <mlpack/methods/linear_regression/linear_regression.hpp>
+//POP_WARNING
 #include <nornir/leo.h> // Must be included after mlpack
 
 #include <map>

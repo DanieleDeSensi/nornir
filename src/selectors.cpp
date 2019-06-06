@@ -75,7 +75,7 @@ Selector::Selector(const Parameters& p,
         _calibrationAllowed(false),
         _totalTasks(0){
     _joulesCounter = _localMammut.getInstanceEnergy()->getCounter();
-    _numPhyCores = _p.mammut->getInstanceTopology()->getPhysicalCores().size();    
+    _numPhyCores = _p.mammut.getInstanceTopology()->getPhysicalCores().size();    
     //TODO Fare meglio con mammut
     //TODO Assicurarsi che il numero totale di configurazioni possibili sia maggiore del numero minimo di punti
 #if 0

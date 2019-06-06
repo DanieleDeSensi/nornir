@@ -1,6 +1,6 @@
 include_directories(${PROJECT_SOURCE_DIR}/include)
-include_directories(${CMAKE_INSTALL_PREFIX}/include)
-link_directories(${CMAKE_INSTALL_PREFIX}/lib)
+include_directories(${EXTERNAL_INSTALL_LOCATION}/include)
+link_directories(${EXTERNAL_INSTALL_LOCATION}/lib)
 
 add_executable(application_instrumented application_instrumented.cpp)
 target_link_libraries(application_instrumented LINK_PUBLIC nornir)
@@ -35,3 +35,5 @@ target_include_directories(parallel_for PUBLIC ${PROJECT_SOURCE_DIR}/include/nor
 add_executable(pipe_ffcompat pipe_ffcompat.cpp)
 target_link_libraries(pipe_ffcompat LINK_PUBLIC nornir)
 target_include_directories(pipe_ffcompat PUBLIC ${PROJECT_SOURCE_DIR}/include/nornir/external/fastflow/)
+
+add_subdirectory(dataflow)

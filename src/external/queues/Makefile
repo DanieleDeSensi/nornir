@@ -1,9 +1,8 @@
 TESTS = wfqueue msqueue #wfqueue0 lcrq ccqueue  faa delay
 
-CC = gcc
-CFLAGS = -Wall -D_GNU_SOURCE -w -O3  -fPIC
-CXXFLAGS = -Wall -D_GNU_SOURCE -w -fPIC
-LDLIBS = -lpthread -lm
+CFLAGS += -Wall -D_GNU_SOURCE -w -O3  -fPIC
+CXXFLAGS += -Wall -D_GNU_SOURCE -w -fPIC
+LDLIBS += -lpthread -lm
 
 ifeq (${VERIFY}, 1)
 	CFLAGS += -DVERIFY

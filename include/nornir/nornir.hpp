@@ -31,9 +31,9 @@
 #include "./dataflow/interpreter.hpp"
 #endif
 
-#include "interface.hpp"
-#include "instrumenter.hpp"
-#include "manager.hpp"
-#include "stats.hpp"
+#include <nornir/interface.hpp>
+#include <nornir/instrumenter.hpp>
+#include <nornir/manager.hpp>
+#include <nornir/stats.hpp>
 
 #endif // NORNIR_HPP_

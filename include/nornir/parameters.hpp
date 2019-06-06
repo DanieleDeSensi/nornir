@@ -63,15 +63,11 @@
 
 #include "external/rapidXml/rapidxml.hpp"
 
+#include <mammut/mammut.hpp>
 #include <cmath>
 #include <limits>
 #include <fstream>
 #include <vector>
-
-namespace mammut{
-    class Communicator;
-    class Mammut;
-}
 
 #define NORNIR_REQUIREMENT_UNDEF 0
 #define NORNIR_REQUIREMENT_MIN std::numeric_limits<double>::min()
@@ -703,7 +699,7 @@ private:
 
 public:
     // The mammut modules handler.
-    mammut::Mammut* mammut;
+    mammut::Mammut mammut;
 
     // Architecture's specific data.
     ArchData archData;

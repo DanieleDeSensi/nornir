@@ -120,16 +120,16 @@ Manager::Manager(Parameters nornirParameters):
     }
     DEBUGB(samplesFile.open("samples.csv"));
 
-    _topology = _p.mammut->getInstanceTopology(); 
-    _cpufreq = _p.mammut->getInstanceCpuFreq();
+    _topology = _p.mammut.getInstanceTopology(); 
+    _cpufreq = _p.mammut.getInstanceCpuFreq();
     if(!_toSimulate){
         // We cannot create energy and task modules
         // since they are not simulated by mammut
-        _counter = _p.mammut->getInstanceEnergy()->getCounter(COUNTER_CPUS);
+        _counter = _p.mammut.getInstanceEnergy()->getCounter(COUNTER_CPUS);
 	if(!_counter){
-	  _counter = _p.mammut->getInstanceEnergy()->getCounter(COUNTER_PLUG);	  
+	  _counter = _p.mammut.getInstanceEnergy()->getCounter(COUNTER_PLUG);	  
 	}
-        _task = _p.mammut->getInstanceTask();
+        _task = _p.mammut.getInstanceTask();
     }
     DEBUG("Mammut handlers created.");
 
@@ -674,7 +674,7 @@ void ManagerInstrumented::stretchPause(){
 }
 
 ManagerBlackBox::ManagerBlackBox(pid_t pid, Parameters nornirParameters):
-        Manager(nornirParameters), _process(nornirParameters.mammut->getInstanceTask()->getProcessHandler(pid)){
+        Manager(nornirParameters), _process(nornirParameters.mammut.getInstanceTask()->getProcessHandler(pid)){
     Manager::_pid = pid;
     Manager::_configuration = new ConfigurationExternal(_p);
     // For blackbox application we do not care if synchronous of not
@@ -950,7 +950,7 @@ static bool areEqualAllocations(std::vector<double> allocation_first, std::vecto
 void ManagerFastFlowPipeline::waitForStart(){
     std::vector<KnobVirtualCoresFarm*> farmsKnobs;
     std::vector<ff_farm<>*> farms;
-    double allowedTotalWorkers = _p.mammut->getInstanceTopology()->getVirtualCores().size();
+    double allowedTotalWorkers = _p.mammut.getInstanceTopology()->getVirtualCores().size();
     for(size_t i = 0; i < _pipe->getStages().size(); i++){
         if(_farmsFlags[i]){
             ff_farm<>* realFarm = dynamic_cast<ff_farm<>*>(_pipe->getStages()[i]);

@@ -46,7 +46,7 @@ typedef struct{
  *        where all the values for all the configurations are known.
  *        
  **/
-PredictionResults compute(uint appId, std::string dataFile,
+PredictionResults compute(uint appId, const std::string& dataFile,
                           const arma::vec* sampledData,
                           bool perColumnNormalization,
                           bool computeError = false);

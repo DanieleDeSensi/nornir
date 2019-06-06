@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<archData>
-	<voltageTableFile>voltage.txt</voltageTableFile>
-	<ticksPerNs>2.4</ticksPerNs>
-        <monitoringCost>420</monitoringCost>
-</archData>

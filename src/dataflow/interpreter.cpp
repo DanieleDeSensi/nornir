@@ -27,8 +27,8 @@
 
 #ifdef __x86_64__
 
-#include "interpreter.hpp"
-#include "../external/mammut/mammut/mammut.hpp"
+#include <nornir/dataflow/interpreter.hpp>
+#include <mammut/mammut.hpp>
 #include <map>
 
 PUSH_WARNING
@@ -356,9 +356,10 @@ public:
             /////////////////////
             if(_graphsInside < _maxGraphs &&
                _in->hasNext() && (next = _in->next()) != NULL){
+                // cppcheck-suppress unreadVariable
                 getFromInput(next);
-                //popped = 0;
-                ++inserted;
+                //popped = 0;                
+                ++inserted;                
                 ++totalSent;
             }
 
@@ -429,7 +430,8 @@ public:
                          **/
                         if(ins->isFireable()){
                             sendToWorkers(ins);
-                            ++_numMdfi[ins->getId()];
+                            // cppcheck-suppress unreadVariable
+                            ++_numMdfi[ins->getId()];                            
                             ++totalSent;
                         }
                     }

@@ -144,7 +144,7 @@ void loadData(uint appId, mat *data, vec *trueData, mat *W,
               std::string dataFile, const vec* sampledData,
               bool perColumnNormalization,
               bool computeError = false){
-    int n, numSamples = 0;
+    int n; //, numSamples = 0;
     mat SupPower, SupPerf;
     
     //numSamples = 20;
@@ -155,7 +155,7 @@ void loadData(uint appId, mat *data, vec *trueData, mat *W,
 
     for(size_t i = 0; i < sampledData->size(); i++){
         if(sampledData->at(i) != 0){
-            ++numSamples;
+            //++numSamples;
             (*W)(i) = 1;
         }
     }
@@ -173,12 +173,11 @@ void loadData(uint appId, mat *data, vec *trueData, mat *W,
     data->swap_cols(0, appId);
 }
 
-PredictionResults compute(uint appId, std::string dataFile,
+PredictionResults compute(uint appId, const std::string& dataFile,
                           const arma::vec* sampledData,
                           bool perColumnNormalization,
                           bool computeError){
     int n;
-    string str;
     mat data, normData, y_em, W;
     vec trueData;
     emParam_t oldData;

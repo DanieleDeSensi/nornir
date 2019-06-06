@@ -4,6 +4,7 @@ set (CMAKE_BUILD_TYPE Release)
 set (CMAKE_CXX_STANDARD 11)
 set (CMAKE_C_STANDARD 11)
 set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/modules/")
+set (EXTERNAL_INSTALL_LOCATION ${PROJECT_BINARY_DIR}/external)
 
 ###########
 # Options #
@@ -43,6 +44,8 @@ endif (ENABLE_CODECOV)
 ###########
 add_subdirectory(src)
 add_subdirectory(demo)
+add_subdirectory(bin)
+add_subdirectory(microbench)
 
 ############
 # cppcheck #
@@ -63,11 +66,11 @@ endif (ENABLE_TESTS)
 # codecov #
 ###########
 if (ENABLE_CODECOV)
-    set(COVERAGE_GCOVR_EXCLUDES 'src/external/*' 'test/*' 'demo/*' 'experiments/*')
+    set(COVERAGE_GCOVR_EXCLUDES 'src/external/*' 'test/*' 'demo/*')
     SETUP_TARGET_FOR_COVERAGE_GCOVR_XML(
         NAME coverage
         EXECUTABLE make test
-        DEPENDENCIES nornir_static
+        DEPENDENCIES nornir
     )
 endif (ENABLE_CODECOV)
 

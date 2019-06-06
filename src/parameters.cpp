@@ -300,7 +300,7 @@ void Parameters::setDefault(){
 
     if(!found){
         throw runtime_error("Impossible to find configuration files. Please run "
-                            "'sudo make microbench' from the nornir root folder.");
+                            "'make microbench' from the nornir root folder.");
     }
 }
 
@@ -354,9 +354,9 @@ void Parameters::setDefaultPost(){
     }
 }
 
-static vector<Frequency> getAvailableFrequencies(Mammut* mammut){
+static vector<Frequency> getAvailableFrequencies(const Mammut& mammut){
     vector<Frequency> frequencies;
-    CpuFreq* cpuFreq = mammut->getInstanceCpuFreq();
+    CpuFreq* cpuFreq = mammut.getInstanceCpuFreq();
     if(cpuFreq){
         cpuFreq->removeTurboFrequencies();
         vector<Domain*> fDomains = cpuFreq->getDomains();
@@ -368,7 +368,7 @@ static vector<Frequency> getAvailableFrequencies(Mammut* mammut){
 }
 
 bool Parameters::isUnusedVcOffAvailable(){
-    vector<VirtualCore*> vc = mammut->getInstanceTopology()->
+    vector<VirtualCore*> vc = mammut.getInstanceTopology()->
                               getVirtualCores();
     for(size_t i = 0; i < vc.size(); i++){
         if(vc.at(i)->isHotPluggable()){
@@ -380,17 +380,17 @@ bool Parameters::isUnusedVcOffAvailable(){
 
 bool Parameters::isFrequencySettable(){
     vector<Frequency> frequencies = getAvailableFrequencies(mammut);
-    return mammut->getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_USERSPACE) && frequencies.size();
+    return mammut.getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_USERSPACE) && frequencies.size();
 
 }
 
 bool Parameters::isLowestFrequencySettable(){
-    return mammut->getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_POWERSAVE) ||
+    return mammut.getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_POWERSAVE) ||
            isFrequencySettable();
 }
 
 bool Parameters::isHighestFrequencySettable(){
-    return mammut->getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_PERFORMANCE) ||
+    return mammut.getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_PERFORMANCE) ||
            isFrequencySettable();
 }
 
@@ -423,15 +423,15 @@ ParametersValidation Parameters::validateUnusedVc(StrategyUnusedVirtualCores& s)
 
 ParametersValidation Parameters::validateKnobFrequencies(){
     vector<Frequency> availableFrequencies = getAvailableFrequencies(mammut);
-    vector<VirtualCore*> virtualCores;
-    virtualCores = mammut->getInstanceTopology()->getVirtualCores();
 
     if(knobFrequencyEnabled &&
-       (!mammut->getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_USERSPACE) || availableFrequencies.empty())){
+       (!mammut.getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_USERSPACE) || availableFrequencies.empty())){
         return VALIDATION_NO_MANUAL_DVFS;
     }
 
 #if defined(__x86_64__)
+    vector<VirtualCore*> virtualCores;
+    virtualCores = mammut.getInstanceTopology()->getVirtualCores();
     for(size_t i = 0; i < virtualCores.size(); i++){
         if(!virtualCores.at(i)->hasFlag("constant_tsc")){
             return VALIDATION_NO_CONSTANT_TSC;
@@ -450,7 +450,7 @@ ParametersValidation Parameters::validateKnobFrequencies(){
 
 ParametersValidation Parameters::validateKnobClkMod(){
     if(knobClkModEnabled && !clockModulationEmulated){
-        vector<Cpu*> cpus = mammut->getInstanceTopology()->getCpus();
+        vector<Cpu*> cpus = mammut.getInstanceTopology()->getCpus();
         for(Cpu* c : cpus){
             if(!c->hasClockModulation()){
                 return VALIDATION_NO_CLKMOD;
@@ -875,21 +875,19 @@ void Parameters::loadXml(const string& paramFileName){
     SETVALUE(xt, Uint, dataflow.maxInterpreters);
 }
 
-Parameters::Parameters(Communicator* const communicator):
-      mammut(new Mammut(communicator)){
+Parameters::Parameters(Communicator* const communicator){
     setDefault();
 }
 
 Parameters::Parameters(const string& paramFileName,
-                       Communicator* const communicator):
-      mammut(new Mammut(communicator)){
+                       Communicator* const communicator){
     setDefault();
     /** Loading parameters. **/
     loadXml(paramFileName);
 }
 
 Parameters::~Parameters(){
-    delete mammut;
+    ;
 }
 
 void Parameters::load(const string& paramFileName){

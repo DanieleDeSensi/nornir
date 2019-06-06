@@ -78,12 +78,12 @@ RegressionData::RegressionData(const Parameters &p,
                                const Configuration &configuration,
                                const Smoother<MonitoredSample>* samples):
         _p(p), _configuration(configuration), _samples(samples){
-    mammut::topology::Topology* t = _p.mammut->getInstanceTopology();
+    mammut::topology::Topology* t = _p.mammut.getInstanceTopology();
     _cpus = t->getCpus().size();
-    _domains = _p.mammut->getInstanceCpuFreq()->getDomains().size();
+    _domains = _p.mammut.getInstanceCpuFreq()->getDomains().size();
     _phyCores = t->getPhysicalCores().size();
     uint virtCoresPerPhyCores = t->getPhysicalCore(0)->getVirtualCores().size();
-    _phyCoresPerDomain = _p.mammut->getInstanceCpuFreq()->getDomains().at(0)->getVirtualCores().size() / virtCoresPerPhyCores;
+    _phyCoresPerDomain = _p.mammut.getInstanceCpuFreq()->getDomains().at(0)->getVirtualCores().size() / virtCoresPerPhyCores;
     _phyCoresPerCpu = t->getCpus().at(0)->getPhysicalCores().size();
     if(!_phyCoresPerDomain){ // Fallback
       _phyCoresPerDomain = 1; //_phyCoresPerCpu;
@@ -128,7 +128,7 @@ RegressionDataServiceTime::RegressionDataServiceTime(const Parameters &p,
         _invScalFactorSpeed(0),
         _invScalFactorSpeedAndCores(0),
         _numPredictors(0){
-    _phyCores = _p.mammut->getInstanceTopology()->getPhysicalCores().size();
+    _phyCores = _p.mammut.getInstanceTopology()->getPhysicalCores().size();
     std::vector<double> frequencies = _configuration.getKnob(KNOB_FREQUENCY)->getAllowedValues();
     if(!frequencies.empty()){
         _minSpeed = frequencies[0];
@@ -630,7 +630,7 @@ void PredictorUsl::refine(){
         }else if(numCores == 1){
             _minSpeedCoresThr = throughput;
         }
-    }else if(speed != _minSpeed){
+    }else{ // speed != _minSpeed
         double minMaxScaling = _maxSpeedThr / _minSpeedThr;
         // We get the expected throughput at minimum frequency starting from the actual
         // throughput at generic frequency. To do so we apply the inverse of the function
@@ -875,12 +875,12 @@ PredictorAnalytical::PredictorAnalytical(PredictorType type,
                                  const Configuration &configuration,
                                  const Smoother<MonitoredSample>* samples):
             Predictor(type, p, configuration, samples) {
-    Topology* t = _p.mammut->getInstanceTopology();
+    Topology* t = _p.mammut.getInstanceTopology();
     _phyCores = t->getPhysicalCores().size();
     _cpus = t->getCpus().size();
-    _domains = _p.mammut->getInstanceCpuFreq()->getDomains().size();
+    _domains = _p.mammut.getInstanceCpuFreq()->getDomains().size();
     uint virtCoresPerPhyCores = t->getPhysicalCore(0)->getVirtualCores().size();
-    _phyCoresPerDomain = _p.mammut->getInstanceCpuFreq()->getDomains().at(0)->getVirtualCores().size() / virtCoresPerPhyCores;
+    _phyCoresPerDomain = _p.mammut.getInstanceCpuFreq()->getDomains().at(0)->getVirtualCores().size() / virtCoresPerPhyCores;
     _phyCoresPerCpu = t->getCpus().at(0)->getPhysicalCores().size();
     if(!_phyCoresPerDomain){ // Fallback
         _phyCoresPerDomain = _phyCoresPerCpu;
@@ -1155,7 +1155,7 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
 		}
 
 		//getting number of CPU and cores per CPU
-		mammut::topology::Topology* t = _p.mammut->getInstanceTopology();
+		mammut::topology::Topology* t = _p.mammut.getInstanceTopology();
 		_phyCoresPerCpu = t->getCpus().at(0)->getPhysicalCores().size();
 		_cpus = t->getCpus().size();
 	}

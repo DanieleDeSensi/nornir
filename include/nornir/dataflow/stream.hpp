@@ -29,6 +29,7 @@
 #define NORNIR_DF_STREAM_HPP_
 
 #include <mammut/utils.hpp>
+#include <nornir/external/fastflow/ff/cycle.h>
 
 #include <cstdlib>
 

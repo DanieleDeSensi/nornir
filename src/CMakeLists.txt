@@ -6,6 +6,15 @@ include_directories(${PROJECT_SOURCE_DIR}/include/nornir/external/fastflow)
 
 file(GLOB SOURCES "*.cpp" "*.c" "dataflow/*.c*")
 
+
+######################
+# Build omp launcher #
+######################
+if(ENABLE_OMP)
+    add_custom_target(omp_launcher
+                      COMMAND ${PROJECT_SOURCE_DIR}/bin/generate_omp_launcher.sh ${PROJECT_BINARY_DIR} ${CMAKE_INSTALL_PREFIX})
+endif(ENABLE_OMP)
+
 ####################
 # Library building #
 ####################
@@ -19,9 +28,10 @@ include(ExternalProject)
 
 if(ENABLE_OMP)
     set(EXTERNAL_INSTALL_LOCATION_OMP ${PROJECT_BINARY_DIR}/external-omp)
+    include_directories(${EXTERNAL_INSTALL_LOCATION_OMP}/include)
     ExternalProject_Add(omp_repo
         GIT_REPOSITORY https://github.com/danieledesensi/LLVM-openmp
-        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION_OMP}
+        CMAKE_ARGS -DLIBOMP_OMPT_SUPPORT=ON -DLIBOMP_OMPT_OPTIONAL=ON -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION_OMP} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
         UPDATE_COMMAND ""
     )
 else()
@@ -30,15 +40,15 @@ endif(ENABLE_OMP)
 
 ExternalProject_Add(mammut_repo
     GIT_REPOSITORY https://github.com/danieledesensi/mammut
-    GIT_TAG 2933b23
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+    GIT_TAG fa14a4b
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     UPDATE_COMMAND ""
 )
 
 ExternalProject_Add(riff_repo
     GIT_REPOSITORY https://github.com/danieledesensi/riff
-    GIT_TAG 96aaab1
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+    GIT_TAG 5b341a8
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     UPDATE_COMMAND ""
 )
 
@@ -63,16 +73,17 @@ find_package(Threads)
 
 # TODO: Check if dependencies are installed
 if(ENABLE_OMP)
-    set(OMP_LIBRARY "omp")
+#    set(OMP_LIBRARY "omp") # Not needed, need to LD_PRELOAD it anyway
     set(OMP_DEP "omp_repo")
+    set(OMP_DEP_LAUNCHER "omp_launcher")
 endif(ENABLE_OMP)
 
 # Dynamic Library
-add_dependencies(nornir compile_ext mammut_repo riff_repo ${OMP_DEP})
+add_dependencies(nornir compile_ext mammut_repo riff_repo ${OMP_DEP} ${OMP_DEP_LAUNCHER})
 target_link_libraries(nornir riff mammut ${MLPACK_LIBRARY} ${GSL_LIBRARY} Threads::Threads ${PROJECT_SOURCE_DIR}/src/external/queues/hzdptr.o ${PROJECT_SOURCE_DIR}/src/external/queues/xxhash.o ${OMP_LIBRARY}) 
 
 # Static Library
-add_dependencies(nornir_static compile_ext mammut_repo riff_repo ${OMP_DEP})
+add_dependencies(nornir_static compile_ext mammut_repo riff_repo ${OMP_DEP} ${OMP_DEP_LAUNCHER})
 target_link_libraries(nornir_static riff_static mammut_static  ${MLPACK_LIBRARY} ${GSL_LIBRARY} Threads::Threads ${PROJECT_SOURCE_DIR}/src/external/queues/hzdptr.o ${PROJECT_SOURCE_DIR}/src/external/queues/xxhash.o ${OMP_LIBRARY}) 
 
 
@@ -85,16 +96,18 @@ install(TARGETS nornir LIBRARY DESTINATION lib)
 install(TARGETS nornir_static ARCHIVE DESTINATION lib)
 
 # Includes
-install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/nornir
-        DESTINATION include)
-# bin
-install(DIRECTORY ${PROJECT_SOURCE_DIR}/bin/*
-        DESTINATION bin)
-
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/nornir DESTINATION include)
 
 # Install dependencies
 install(DIRECTORY ${EXTERNAL_INSTALL_LOCATION}/lib DESTINATION .)
 install(DIRECTORY ${EXTERNAL_INSTALL_LOCATION}/include DESTINATION .)
+
+if(ENABLE_OMP)
+    if(EXISTS ${EXTERNAL_INSTALL_LOCATION_OMP}/lib/libomp.so)
+        file(RENAME ${EXTERNAL_INSTALL_LOCATION_OMP}/lib/libomp.so ${EXTERNAL_INSTALL_LOCATION_OMP}/lib/libomp_nornir.so)
+    endif()
+    install(FILES ${EXTERNAL_INSTALL_LOCATION_OMP}/lib/libomp_nornir.so DESTINATION lib)
+endif(ENABLE_OMP)
 
 
 

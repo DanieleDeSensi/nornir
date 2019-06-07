@@ -27,17 +27,20 @@
  *
  * =========================================================================
  */
-
 #define __STDC_FORMAT_MACROS 1
+
+#include <nornir/instrumenter.hpp>
+
 #include <omp.h>
 #include <ompt.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #undef DEBUG
 #undef DEBUGB
-
-#define DEBUG_OMPT
 
 #ifdef DEBUG_OMPT
 //#define DEBUG(x) do { cerr << "[Nornir-OMPT] " << x << endl; } while (0)
@@ -48,6 +51,33 @@
 #define DEBUGB(x) do {} while(0)
 #endif
 
+static nornir::Instrumenter* instr = NULL;
+static bool initialized = false;
+
+static inline void init(){
+    if(omp_get_thread_num() == 0 && !initialized){
+        const char* parameters_file = getenv("NORNIR_OMP_PARAMETERS");
+        nornir::Instrumenter* tmpinstr = NULL;
+        if(parameters_file){
+            tmpinstr = new nornir::Instrumenter(std::string(parameters_file), omp_get_num_threads());
+            riff::ApplicationConfiguration ac;
+            ac.samplingLengthMs = 0;
+            ac.consistencyThreshold = std::numeric_limits<double>::max();
+            tmpinstr->setConfiguration(ac);
+        }
+        initialized = true;
+        instr = tmpinstr;
+    }
+}
+
+static inline void instrument(unsigned long long times = 1){
+    init();
+    if(instr){
+        unsigned int tid = omp_get_thread_num();
+        instr->begin(tid);
+        instr->end(tid, times);
+    }
+}
 
 #define register_callback_t(name, type)                       \
     do{                                                           \
@@ -65,7 +95,7 @@ static const char* ompt_task_status_t_values[] = {
     "ompt_task_complete",
     "ompt_task_yield",
     "ompt_task_cancel",
-  "ompt_task_others"
+    "ompt_task_others"
 };
 #endif
 
@@ -80,7 +110,8 @@ on_ompt_callback_task_schedule(
 {
     DEBUG("[Nornir] %" PRIu64 ": ompt_event_task_schedule: first_task_id=%" PRIu64 ", second_task_id=%" PRIu64 ", prior_task_status=%s=%d\n", ompt_get_thread_data()->value, first_task_data->value, second_task_data->value, ompt_task_status_t_values[prior_task_status], prior_task_status);
     if(prior_task_status == ompt_task_complete){
-        printf("[Nornir] %" PRIu64 ": ompt_event_task_end: task_id=%" PRIu64 "\n", ompt_get_thread_data()->value, first_task_data->value);
+        DEBUG("[Nornir] %" PRIu64 ": ompt_event_task_end: task_id=%" PRIu64 "\n", ompt_get_thread_data()->value, first_task_data->value);
+        instrument();
     }
 }
 
@@ -101,19 +132,24 @@ on_ompt_callback_implicit_task(
             DEBUG("[Nornir] %" PRIu64 ": ompt_event_implicit_task_begin: parallel_id=%" PRIu64 ", task_id=%" PRIu64 ", team_size=%" PRIu32 ", thread_num=%" PRIu32 "\n", ompt_get_thread_data()->value, parallel_data->value, task_data->value, team_size, thread_num);
             break;
         case ompt_scope_end:
-            printf("[Nornir] %" PRIu64 ": ompt_event_implicit_task_end: parallel_id=%" PRIu64 ", task_id=%" PRIu64 ", team_size=%" PRIu32 ", thread_num=%" PRIu32 "\n", ompt_get_thread_data()->value, (parallel_data)?parallel_data->value:0, task_data->value, team_size, thread_num);
+            DEBUG("[Nornir] %" PRIu64 ": ompt_event_implicit_task_end: parallel_id=%" PRIu64 ", task_id=%" PRIu64 ", team_size=%" PRIu32 ", thread_num=%" PRIu32 "\n", ompt_get_thread_data()->value, (parallel_data)?parallel_data->value:0, task_data->value, team_size, thread_num);
+            instrument();
             break;
         }
 }
 
-
+static void
+on_ompt_callback_chunk(unsigned long long chunk_size){
+    DEBUG("[Nornir] Chunk size: %llu\n", chunk_size);
+    instrument(chunk_size);
+}
 
 int ompt_initialize(
                     ompt_function_lookup_t lookup,
                     ompt_data_t* data)
 {
-    DEBUG("[Nornir] libomp init time: %f\n", omp_get_wtime()-*(double*)(data->ptr));
-    *(double*)(data->ptr)=omp_get_wtime();
+    DEBUG("[Nornir] libomp init time: %f\n", omp_get_wtime() - *(double*)(data->ptr));
+    *(double*)(data->ptr) = omp_get_wtime();
 
     ompt_set_callback_t ompt_set_callback = (ompt_set_callback_t) lookup("ompt_set_callback");
     ompt_get_thread_data = (ompt_get_thread_data_t) lookup("ompt_get_thread_data");
@@ -121,21 +157,37 @@ int ompt_initialize(
 
     register_callback(ompt_callback_task_schedule);
     register_callback(ompt_callback_implicit_task);
+    register_callback(ompt_callback_chunk);
+
     return 1; //success
 }
+
+static nornir::InstrumenterServer* is;
 
 void ompt_finalize(ompt_data_t* data)
 {
     DEBUG("[Nornir] application runtime: %f\n", omp_get_wtime()-*(double*)(data->ptr));
+    if(omp_get_thread_num() == 0 && instr){
+        instr->terminate();        
+        delete instr;
+    }
 }
 
 ompt_start_tool_result_t* ompt_start_tool(
                                           unsigned int omp_version,
                                           const char *runtime_version)
 {
-    static double time=0;
-    time=omp_get_wtime();
+    static double time = 0;
+    time = omp_get_wtime();
     static ompt_start_tool_result_t ompt_start_tool_result = {&ompt_initialize,&ompt_finalize,{.ptr=&time}};
+
+    pid_t serverPid = fork();
+    if(!serverPid){
+      is = new nornir::InstrumenterServer(true);
+      is->start();
+      is->join();
+      exit(0);
+    }
+
     return &ompt_start_tool_result;
 }
-

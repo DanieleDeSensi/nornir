@@ -498,8 +498,7 @@ void PredictorLinearRegression::prepareForPredictions(){
             responsesMl.resize(_agingVector.size());
         }
 
-        std::ostringstream x1;
-        std::ostringstream x2;
+        std::ostringstream x1, x2;
         arma::set_stream_err1(x1);
         arma::set_stream_err2(x2);
         LinearRegression newlr = LinearRegression(dataMl, responsesMl);

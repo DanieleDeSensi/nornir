@@ -5,15 +5,23 @@ link_directories(${EXTERNAL_INSTALL_LOCATION}/lib)
 add_executable(manager-blackbox manager-blackbox.cpp)
 #target_include_directories(manager-blackbox PUBLIC ${PROJECT_SOURCE_DIR}/src/external/tclap-1.2.1/include/)
 target_link_libraries(manager-blackbox LINK_PUBLIC nornir)
+install(TARGETS manager-blackbox DESTINATION bin)
 
 add_executable(manager-external manager-external.cpp)
 target_link_libraries(manager-external LINK_PUBLIC nornir)
+install(TARGETS manager-external DESTINATION bin)
 
 add_executable(manager-single manager-single.cpp)
 target_link_libraries(manager-single LINK_PUBLIC nornir)
+install(TARGETS manager-single DESTINATION bin)
 
 add_executable(selector-manual selector-manual.cpp)
 target_include_directories(selector-manual PUBLIC ${PROJECT_SOURCE_DIR}/src/external/tclap-1.2.1/include/)
 target_link_libraries(selector-manual LINK_PUBLIC nornir)
+install(TARGETS selector-manual DESTINATION bin)
 
 add_subdirectory(selector-manual-web)
+
+if(ENABLE_OMP)
+	install(PROGRAMS ${PROJECT_BINARY_DIR}/bin/nornir_omp_launcher.sh DESTINATION bin)
+endif(ENABLE_OMP)

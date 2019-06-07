@@ -82,11 +82,24 @@ public:
      * is to create as soon as possible (i.e. before the beginning of critical
      * parts of application) such that in the meanwhile a connection
      * with the manager can be established.
-     * @param parameters The file containing the Nornir parameters.
+     * @param parametersFile The file containing the Nornir parameters.
+     * @param numThreads The number of threads calling the instrumentation calls.
+     * @param aggregator The riff aggregator.
      */
     explicit Instrumenter(const std::string& parametersFile,
                           size_t numThreads = 1,
                           riff::Aggregator* aggregator = NULL);
+};
+
+/**
+ * A server which can interact with the Instrumenter.
+ **/
+class InstrumenterServer: public mammut::utils::Thread{
+private:
+    bool _singleClient;
+public:
+    InstrumenterServer(bool singleClient = true):_singleClient(singleClient){;}
+    void run();
 };
 
 }

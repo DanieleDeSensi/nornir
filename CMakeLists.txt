@@ -14,6 +14,7 @@ option (ENABLE_CPPCHECK "Enables cppcheck checks" OFF)
 option (ENABLE_CODECOV "Enables code coverage reports" OFF)
 option (ENABLE_CLANGFORMAT "Enables clang-format formatting" OFF)
 option (ENABLE_DOCS "Enables documentation generation" OFF)
+option (ENABLE_OMP "Enables OpenMP interaction" OFF)
 
 include(CheckCXXCompilerFlag)
 check_cxx_compiler_flag(-faligned-new AW)

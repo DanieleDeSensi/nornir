@@ -28,7 +28,6 @@
  * =========================================================================
  */
 
-#ifdef WITH_OMPT
 #define __STDC_FORMAT_MACROS 1
 #include <omp.h>
 #include <ompt.h>
@@ -140,5 +139,3 @@ ompt_start_tool_result_t* ompt_start_tool(
     return &ompt_start_tool_result;
 }
 
-
-#endif // WITH_OMPT

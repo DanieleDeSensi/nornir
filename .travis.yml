@@ -13,9 +13,18 @@ install:
   # mlpack
   - sudo add-apt-repository ppa:titas-chanda/armadillo -y
   - sudo apt-get update
-  - sudo apt-get install libmlpack3 libmlpack-dev libarmadillo-dev libgsl0-dev
+  - sudo apt-get install libarmadillo-dev libgsl0-dev
 
 script:
+  # Install mlpack
+  - wget https://github.com/mlpack/mlpack/archive/mlpack-3.1.1.zip
+  - unzip mlpack-3.1.1.zip
+  - cd mlpack-mlpack-3.1.1/
+  - mkdir build
+  - cd build
+  - cmake ../
+  - make
+  - sudo make install
   # Runs compilation, cppcheck, tests and coverage collection
   - mkdir build
   - cd build

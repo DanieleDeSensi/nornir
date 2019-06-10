@@ -25,6 +25,7 @@ script:
   - cmake ../
   - make
   - sudo make install
+  - cd ..
   # Runs compilation, cppcheck, tests and coverage collection
   - mkdir build
   - cd build

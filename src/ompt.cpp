@@ -180,7 +180,6 @@ ompt_start_tool_result_t* ompt_start_tool(
     static double time = 0;
     time = omp_get_wtime();
     static ompt_start_tool_result_t ompt_start_tool_result = {&ompt_initialize,&ompt_finalize,{.ptr=&time}};
-
     pid_t serverPid = fork();
     if(!serverPid){
       is = new nornir::InstrumenterServer(true);
@@ -191,3 +190,4 @@ ompt_start_tool_result_t* ompt_start_tool(
 
     return &ompt_start_tool_result;
 }
+

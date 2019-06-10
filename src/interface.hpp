@@ -152,7 +152,7 @@ public:
      * @param id The identifier of the worker. Starts from 0.
      * @return true if the task has been sent, false otherwise.
      */
-    void sendToNonBlocking(O* task, uint id) CX11_KEYWORD(final){
+    bool sendToNonBlocking(O* task, uint id) CX11_KEYWORD(final){
         if(id >= _lb->getnworkers()){
             throw new std::runtime_error("FATAL: Trying to send to a non running worker."
                                          "Please ensure that your application is "
@@ -207,7 +207,7 @@ public:
 template <typename I, typename O = std::nullptr_t> class Scheduler: public SchedulerBase<O>{
 private:
     // We force it to be private to avoid misuse by the user.
-    using SchedulerBase<O>::transformTaskForOrdering; 
+    using SchedulerBase<O>::transformTaskForOrdering;
 
     void* svc(void* task) CX11_KEYWORD(final){
         O* r = schedule((I*)(task));
@@ -246,7 +246,7 @@ template <typename O>
 class Scheduler<O, std::nullptr_t>: public SchedulerBase<O>{
 private:
     // We force it to be private to avoid misuse by the user.
-    using SchedulerBase<O>::transformTaskForOrdering; 
+    using SchedulerBase<O>::transformTaskForOrdering;
 
     void* svc(void* task) CX11_KEYWORD(final){
         O* r = schedule();
@@ -338,7 +338,7 @@ private:
 
     void* svc(void* t) CX11_KEYWORD(final){
         I* computeInput = getComputeInput(t);
-        void* computeOutput = (void*) compute(computeInput); 
+        void* computeOutput = (void*) compute(computeInput);
         if(_ordering){
             OrderedTask* ot = reinterpret_cast<OrderedTask*>(t);
             ot->setTask((void*) computeOutput);
@@ -393,7 +393,7 @@ public:
  * Common base class for gatherers (e.g. gatherer, accelerator gatherer, etc...).
  */
 template <typename I>
-class GathererBase: public AdaptiveNode{    
+class GathererBase: public AdaptiveNode{
     template <typename T, typename V> friend class FarmBase;
 private:
     bool _ordering;
@@ -418,7 +418,7 @@ protected:
                 toReturn.push_back(reinterpret_cast<I*>(ot->getTask()));
                 ++_nextTaskId;
             }else{
-                // Put in queue 
+                // Put in queue
                 _priorityQueue.push(*ot);
             }
             while(!_priorityQueue.empty() && _priorityQueue.top().getId() == _nextTaskId){
@@ -485,7 +485,7 @@ template <typename I>
 class Gatherer<I, std::nullptr_t>: public GathererBase<I>{
 private:
     using GathererBase<I>::getGatherInputs;
-    
+
     void* svc(void* t) CX11_KEYWORD(final){
         std::vector<I*> realTasks;
         getGatherInputs(t, realTasks);
@@ -604,7 +604,7 @@ public:
      */
     // TODO Parameters pointer or Copy?
     explicit FarmBase(const Parameters* parameters):_farm(NULL),
-                                       _params(NULL), _manager(NULL), 
+                                       _params(NULL), _manager(NULL),
                                        _scheduler(NULL), _gatherer(NULL){
         _nodesCreated = false;
         _params = parameters;
@@ -619,7 +619,7 @@ public:
      *        configuration parameters.
      */
     explicit FarmBase(const std::string& paramFileName):_farm(NULL),
-                                          _params(NULL), _manager(NULL), 
+                                          _params(NULL), _manager(NULL),
                                           _scheduler(NULL), _gatherer(NULL){
         _nodesCreated = false;
         _params = new Parameters(paramFileName);
@@ -743,7 +743,7 @@ public:
     }
 
     /**
-     * Sets on demand scheduling. 
+     * Sets on demand scheduling.
      * If you use on demand scheduling, DON't use
      * sendTo(...) call if you have a user
      * defined scheduler.
@@ -760,13 +760,13 @@ public:
     }
 
     /**
-     * By default, the farm does not preserve the order of the 
+     * By default, the farm does not preserve the order of the
      * input elements. I.e. corresponding output elements may
-     * be produced in a different order. 
+     * be produced in a different order.
      * By calling this function it is possible to force
      * the farm to preserve the order of the elements.
      * This function must be called after the scheduler
-     * and the gatherer have been set. 
+     * and the gatherer have been set.
      **/
     void preserveOrdering(){
         if(!_gatherer){
@@ -789,6 +789,10 @@ public:
      * gatherer (or the output of workers if gatherer not present)).
      **/
     void setFeedback(){
+#ifdef BLOCKING_MODE
+        throw std::runtime_error("setFeedback cannot be used with FastFlow BLOCKING_MODE macro defined.");
+        // TODO Set nonblocking at runtime
+#endif
         _feedback = true;
     }
 };
@@ -1262,7 +1266,7 @@ public:
         }
     }
 
-    inline void parallel_for(long long int start, long long int end, long long int step, 
+    inline void parallel_for(long long int start, long long int end, long long int step,
                              long int chunkSize, const std::function<void(unsigned long long, unsigned long long)>& function){
         // Allocate ranges here so pointers will be valid for all the function duration.
         // We need list because with vector we invalidate pointers when doing push_back
@@ -1278,7 +1282,7 @@ public:
             unsigned long long numIterations = std::ceil((end - start)/(double) step);
             chunkSize = std::ceil(numIterations / (double) _numThreads);
         }
-        
+
         resume();
 
         ParallelForRange pfr;
@@ -1319,7 +1323,7 @@ public:
  * i.e. each thread gets numIterations/numThreads iterations
  **/
 template <typename Function>
-inline void parallel_for(long long int start, long long int end, long long int step, 
+inline void parallel_for(long long int start, long long int end, long long int step,
                          long int chunkSize, unsigned long int numThreads,
                          nornir::Parameters* parameters, const Function& function){
     ParallelFor pf(numThreads, parameters);
@@ -1329,7 +1333,7 @@ inline void parallel_for(long long int start, long long int end, long long int s
 
 
 template <typename Function>
-inline void parallel_for(long long int start, long long int end, long long int step, 
+inline void parallel_for(long long int start, long long int end, long long int step,
                          long int chunkSize, unsigned long int numThreads,
                          std::string parametersFile, const Function& function){
     Parameters p(parametersFile);

@@ -41,6 +41,7 @@
 
 using namespace nornir;
 using namespace nn;
+using namespace std;
 
 #undef DEBUG
 #undef DEBUGB

@@ -41,7 +41,7 @@ using mammut::Communicator;
 using mammut::Mammut;
 using mammut::utils::enumStrings;
 
-#define CONFIGURATION_VERSION "1.0.0"
+#define CONFIGURATION_VERSION "1.1.0"
 #define CONFPATH_LEN_MAX 512
 #define CONFFILE_VERSION "/version.csv"
 #define CONFFILE_ARCH "/archdata.xml"
@@ -196,11 +196,12 @@ void XmlTree::getEnum(const char* valueName, T& value){
 void ArchData::loadXml(const string& archFileName){
     XmlTree xc(archFileName, "archData");
     SETVALUE(xc, Double, ticksPerNs);
+    SETVALUE(xc, Double, idlePower);
     SETVALUE(xc, Double, monitoringCost);
 }
 
 Requirements::Requirements(){
-    bandwidth = NORNIR_REQUIREMENT_UNDEF;
+    throughput = NORNIR_REQUIREMENT_UNDEF;
     powerConsumption = NORNIR_REQUIREMENT_UNDEF;
     minUtilization = NORNIR_REQUIREMENT_UNDEF;
     maxUtilization = NORNIR_REQUIREMENT_UNDEF;
@@ -210,7 +211,7 @@ Requirements::Requirements(){
 }
 
 bool Requirements::anySpecified() const{
-    return bandwidth != NORNIR_REQUIREMENT_UNDEF ||
+    return throughput != NORNIR_REQUIREMENT_UNDEF ||
            powerConsumption != NORNIR_REQUIREMENT_UNDEF ||
            minUtilization != NORNIR_REQUIREMENT_UNDEF ||
            maxUtilization != NORNIR_REQUIREMENT_UNDEF ||
@@ -232,6 +233,7 @@ void Parameters::setDefault(){
     knobCoresEnabled = true;
     knobMappingEnabled = true;
     knobFrequencyEnabled = true;
+    knobClkModEnabled = false;
     knobHyperthreadingEnabled = false;
     knobHyperthreadingFixedValue = 0;
     activeThreads = 0;
@@ -245,13 +247,17 @@ void Parameters::setDefault(){
     samplingIntervalSteady = 1000;
     steadyThreshold = 4;
     minTasksPerSample = 0;
-    synchronousWorkers = false;    
+    synchronousWorkers = false;
     maxCalibrationTime = 0;
     maxCalibrationSteps = 0;
     maxPerformancePredictionError = 10.0;
     maxPowerPredictionError = 5.0;
     regressionAging = 0;
     maxMonitoringOverhead = 1.0;
+    clockModulationEmulated = true;
+    clockModulationMin = 1.0;
+    clockModulationResolution = 2.0;
+    clockModulationInterval = 1000;
     thresholdQBlocking = -1;
     thresholdQBlockingBelt = 0.05;
     tolerableSamples = 0;
@@ -263,7 +269,7 @@ void Parameters::setDefault(){
 
     leo.applicationName = "";
     leo.namesData = "";
-    leo.bandwidthData = "";
+    leo.throughputData = "";
     leo.powerData = "";
     leo.numSamples = 20;
 
@@ -376,7 +382,7 @@ bool Parameters::isUnusedVcOffAvailable(){
 
 bool Parameters::isFrequencySettable(){
     vector<Frequency> frequencies = getAvailableFrequencies();
-    return  isGovernorAvailable(GOVERNOR_USERSPACE) && frequencies.size();
+    return isGovernorAvailable(GOVERNOR_USERSPACE) && frequencies.size();
 
 }
 
@@ -422,16 +428,18 @@ ParametersValidation Parameters::validateKnobFrequencies(){
     vector<VirtualCore*> virtualCores;
     virtualCores = mammut.getInstanceTopology()->getVirtualCores();
 
-    if(knobFrequencyEnabled && !(isGovernorAvailable(GOVERNOR_USERSPACE) &&
-         availableFrequencies.size())){
+    if(knobFrequencyEnabled &&
+       (!isGovernorAvailable(GOVERNOR_USERSPACE) || availableFrequencies.empty())){
         return VALIDATION_NO_MANUAL_DVFS;
     }
 
+#if defined(__x86_64__)
     for(size_t i = 0; i < virtualCores.size(); i++){
         if(!virtualCores.at(i)->hasFlag("constant_tsc")){
             return VALIDATION_NO_CONSTANT_TSC;
         }
     }
+#endif
 
     if(fastReconfiguration &&
        (!isHighestFrequencySettable() ||
@@ -439,6 +447,18 @@ ParametersValidation Parameters::validateKnobFrequencies(){
         fastReconfiguration = false;
     }
 
+    return VALIDATION_OK;
+}
+
+ParametersValidation Parameters::validateKnobClkMod(){
+    if(knobClkModEnabled && !clockModulationEmulated){
+        vector<Cpu*> cpus = mammut.getInstanceTopology()->getCpus();
+        for(Cpu* c : cpus){
+            if(!c->hasClockModulation()){
+                return VALIDATION_NO_CLKMOD;
+            }
+        }            
+    }   
     return VALIDATION_OK;
 }
 
@@ -466,8 +486,8 @@ ParametersValidation Parameters::validateRequirements(){
             return VALIDATION_WRONG_REQUIREMENT;
         }
     }
-    if(requirements.bandwidth != NORNIR_REQUIREMENT_UNDEF &&
-       requirements.bandwidth < 0){
+    if(requirements.throughput != NORNIR_REQUIREMENT_UNDEF &&
+       requirements.throughput < 0){
         return VALIDATION_WRONG_REQUIREMENT;
     }
     if(requirements.executionTime != NORNIR_REQUIREMENT_UNDEF &&
@@ -504,7 +524,7 @@ ParametersValidation Parameters::validateRequirements(){
     }
 
     uint maxMinRequirements = 0;
-    if(requirements.bandwidth == NORNIR_REQUIREMENT_MAX){
+    if(requirements.throughput == NORNIR_REQUIREMENT_MAX){
         ++maxMinRequirements;
     }
     if(requirements.executionTime == NORNIR_REQUIREMENT_MIN){
@@ -518,8 +538,9 @@ ParametersValidation Parameters::validateRequirements(){
     }
 
     // TODO: Remove Utilization requirements (can be obtained through
-    // bandwidth + tolerance/conservative
+    // throughput + tolerance/conservative
     // At most 1 min/max requirement can be specified.
+    // TODO: At most one or exactly one?
     if(maxMinRequirements > 1){
         return VALIDATION_WRONG_REQUIREMENT;
     }
@@ -537,24 +558,35 @@ ParametersValidation Parameters::validateSelector(){
     knobsSupportSelector[STRATEGY_SELECTION_MANUAL_CLI][KNOB_FREQUENCY] = true;
     knobsSupportSelector[STRATEGY_SELECTION_MANUAL_CLI][KNOB_MAPPING] = true;
     knobsSupportSelector[STRATEGY_SELECTION_MANUAL_CLI][KNOB_HYPERTHREADING] = true;
+    knobsSupportSelector[STRATEGY_SELECTION_MANUAL_CLI][KNOB_CLKMOD] = true;
 
     // MANUAL WEB
     knobsSupportSelector[STRATEGY_SELECTION_MANUAL_WEB][KNOB_VIRTUAL_CORES] = true;
     knobsSupportSelector[STRATEGY_SELECTION_MANUAL_WEB][KNOB_FREQUENCY] = true;
     knobsSupportSelector[STRATEGY_SELECTION_MANUAL_WEB][KNOB_MAPPING] = false;
     knobsSupportSelector[STRATEGY_SELECTION_MANUAL_WEB][KNOB_HYPERTHREADING] = false;
+    knobsSupportSelector[STRATEGY_SELECTION_MANUAL_WEB][KNOB_CLKMOD] = false;
 
     // ANALYTICAL
     knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL][KNOB_VIRTUAL_CORES] = true;
     knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL][KNOB_FREQUENCY] = true;
     knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL][KNOB_MAPPING] = false;
     knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL][KNOB_HYPERTHREADING] = false;
+    knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL][KNOB_CLKMOD] = false;
+
+    // ANALYTICAL_FULL
+    knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_VIRTUAL_CORES] = true;
+    knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_FREQUENCY] = true;
+    knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_MAPPING] = false;
+    knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_HYPERTHREADING] = false;
+    knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_CLKMOD] = false;
 
     // FULLSEARCH
     knobsSupportSelector[STRATEGY_SELECTION_FULLSEARCH][KNOB_VIRTUAL_CORES] = true;
     knobsSupportSelector[STRATEGY_SELECTION_FULLSEARCH][KNOB_FREQUENCY] = true;
     knobsSupportSelector[STRATEGY_SELECTION_FULLSEARCH][KNOB_MAPPING] = true;
     knobsSupportSelector[STRATEGY_SELECTION_FULLSEARCH][KNOB_HYPERTHREADING] = true;
+    knobsSupportSelector[STRATEGY_SELECTION_FULLSEARCH][KNOB_CLKMOD] = true;
 
     // For learning we do not check since it depends from the predictors choice.
     // (we will check in validatePredictors())
@@ -564,15 +596,17 @@ ParametersValidation Parameters::validateSelector(){
     knobsSupportSelector[STRATEGY_SELECTION_LIMARTINEZ][KNOB_FREQUENCY] = true;
     knobsSupportSelector[STRATEGY_SELECTION_LIMARTINEZ][KNOB_MAPPING] = false;
     knobsSupportSelector[STRATEGY_SELECTION_LIMARTINEZ][KNOB_HYPERTHREADING] = false;
+    knobsSupportSelector[STRATEGY_SELECTION_LIMARTINEZ][KNOB_CLKMOD] = false;
 
     // LEO
     knobsSupportSelector[STRATEGY_SELECTION_LEO][KNOB_VIRTUAL_CORES] = true;
     knobsSupportSelector[STRATEGY_SELECTION_LEO][KNOB_FREQUENCY] = true;
     knobsSupportSelector[STRATEGY_SELECTION_LEO][KNOB_MAPPING] = false;
     knobsSupportSelector[STRATEGY_SELECTION_LEO][KNOB_HYPERTHREADING] = false;
+    knobsSupportSelector[STRATEGY_SELECTION_LEO][KNOB_CLKMOD] = false;
 
     if(strategySelection == STRATEGY_SELECTION_LEO &&
-       (leo.bandwidthData.compare("") == 0 ||
+       (leo.throughputData.compare("") == 0 ||
         leo.powerData.compare("") == 0 ||
         leo.applicationName.compare("") == 0 ||
         leo.namesData.compare("") == 0)){
@@ -606,21 +640,31 @@ ParametersValidation Parameters::validateSelector(){
         knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL][KNOB_FREQUENCY] = true;
         knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL][KNOB_MAPPING] = true;
         knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL][KNOB_HYPERTHREADING] = false;
+        knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL][KNOB_CLKMOD] = true;
         // LEO
         knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_VIRTUAL_CORES] = true;
         knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_FREQUENCY] = true;
         knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_MAPPING] = false;
         knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_HYPERTHREADING] = false;
+        knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_CLKMOD] = false;
         // USL
         knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_VIRTUAL_CORES] = true;
         knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_FREQUENCY] = true;
         knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_MAPPING] = true;
         knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_HYPERTHREADING] = false;
+        knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_CLKMOD] = true;
         // USLP
         knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP][KNOB_VIRTUAL_CORES] = true;
         knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP][KNOB_FREQUENCY] = true;
         knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP][KNOB_MAPPING] = true;
         knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP][KNOB_HYPERTHREADING] = false;
+        knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP][KNOB_CLKMOD] = true;
+        // SMT
+        knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_VIRTUAL_CORES] = true;
+        knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_FREQUENCY] = true;
+        knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_MAPPING] = false;
+        knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_HYPERTHREADING] = true;
+        knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_CLKMOD] = false;
 
         /******************************************/
         /*              Power models.             */
@@ -630,13 +674,22 @@ ParametersValidation Parameters::validateSelector(){
         knobsSupportPower[STRATEGY_PREDICTION_POWER_LINEAR][KNOB_FREQUENCY] = true;
         knobsSupportPower[STRATEGY_PREDICTION_POWER_LINEAR][KNOB_MAPPING] = true;
         knobsSupportPower[STRATEGY_PREDICTION_POWER_LINEAR][KNOB_HYPERTHREADING] = false;
+        knobsSupportPower[STRATEGY_PREDICTION_POWER_LINEAR][KNOB_CLKMOD] = true;
         // LEO
         knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_VIRTUAL_CORES] = true;
         knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_FREQUENCY] = true;
         knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_MAPPING] = false;
         knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_HYPERTHREADING] = false;
+        knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_CLKMOD] = false;
+        // SMT
+        knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_VIRTUAL_CORES] = true;
+        knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_FREQUENCY] = true;
+        knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_MAPPING] = false;
+        knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_HYPERTHREADING] = true;
+        knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_CLKMOD] = false;
 
         // Check if the knob enabled can be managed by the predictors specified.
+
         for(size_t i = 0; i < KNOB_NUM; i++){
             if(_knobEnabled[i] && (!knobsSupportPerformance[strategyPredictionPerformance][i] ||
                                   !knobsSupportPower[strategyPredictionPower][i])){
@@ -645,7 +698,7 @@ ParametersValidation Parameters::validateSelector(){
         }
 
         if(strategyPredictionPerformance == STRATEGY_PREDICTION_PERFORMANCE_LEO &&
-             (leo.bandwidthData.compare("") == 0 ||
+             (leo.throughputData.compare("") == 0 ||
               leo.powerData.compare("") == 0 ||
               leo.applicationName.compare("") == 0 ||
               leo.namesData.compare("") == 0)){
@@ -656,7 +709,9 @@ ParametersValidation Parameters::validateSelector(){
         // TODO: This is because the additional exploration points at the moment
         // can only be added to the low discrepancy generators.
         if((strategyPredictionPerformance == STRATEGY_PREDICTION_PERFORMANCE_USL ||
-            strategyPredictionPerformance == STRATEGY_PREDICTION_PERFORMANCE_USLP) &&
+            strategyPredictionPerformance == STRATEGY_PREDICTION_PERFORMANCE_USLP ||
+            strategyPredictionPerformance == STRATEGY_PREDICTION_PERFORMANCE_SMT ||
+            strategyPredictionPower == STRATEGY_PREDICTION_POWER_SMT) &&
            (strategyExploration != STRATEGY_EXPLORATION_HALTON && strategyExploration != STRATEGY_EXPLORATION_HALTON_REVERSE &&
             strategyExploration != STRATEGY_EXPLORATION_RANDOM && strategyExploration != STRATEGY_EXPLORATION_SOBOL)){
                return VALIDATION_NO;
@@ -686,10 +741,11 @@ template<> char const* enumStrings<StrategyUnusedVirtualCores>::data[] = {
 };
 
 template<> char const* enumStrings<StrategySelection>::data[] = {
-	"MANUAL_CLI",
+    "MANUAL_CLI",
     "MANUAL_WEB",
     "LEARNING",
     "ANALYTICAL",
+    "ANALYTICAL_FULL",
     "FULLSEARCH",
     "LIMARTINEZ",
     "LEO",
@@ -701,12 +757,14 @@ template<> char const* enumStrings<StrategyPredictionPerformance>::data[] = {
     "USL",
     "USLP",
     "LEO",
+    "SMT",
     "NUM" // <- Must always be the last
 };
 
 template<> char const* enumStrings<StrategyPredictionPower>::data[] = {
     "LINEAR",
     "LEO",
+    "SMT",
     "NUM" // <- Must always be the last
 };
 
@@ -748,7 +806,7 @@ template<> char const* enumStrings<StrategyPhaseDetection>::data[] = {
 void Parameters::loadXml(const string& paramFileName){
     XmlTree xt(paramFileName, "nornirParameters");
 
-    SETVALUE(xt, DoubleOrMax, requirements.bandwidth);
+    SETVALUE(xt, DoubleOrMax, requirements.throughput);
     SETVALUE(xt, DoubleOrMin, requirements.powerConsumption);
     SETVALUE(xt, Double, requirements.minUtilization);
     SETVALUE(xt, Double, requirements.maxUtilization);
@@ -769,6 +827,7 @@ void Parameters::loadXml(const string& paramFileName){
     SETVALUE(xt, Bool, knobCoresEnabled);
     SETVALUE(xt, Bool, knobMappingEnabled);
     SETVALUE(xt, Bool, knobFrequencyEnabled);
+    SETVALUE(xt, Bool, knobClkModEnabled);
     SETVALUE(xt, Bool, knobHyperthreadingEnabled);
     SETVALUE(xt, Double, knobHyperthreadingFixedValue);
 
@@ -790,6 +849,10 @@ void Parameters::loadXml(const string& paramFileName){
     SETVALUE(xt, Double, maxPowerPredictionError);
     SETVALUE(xt, Uint, regressionAging);
     SETVALUE(xt, Double, maxMonitoringOverhead);
+    SETVALUE(xt, Bool, clockModulationEmulated);
+    SETVALUE(xt, Double, clockModulationMin);
+    SETVALUE(xt, Double, clockModulationResolution);
+    SETVALUE(xt, Double, clockModulationInterval);
     SETVALUE(xt, Double, thresholdQBlocking);
     SETVALUE(xt, Double, thresholdQBlockingBelt);
     SETVALUE(xt, Uint, tolerableSamples);
@@ -804,7 +867,7 @@ void Parameters::loadXml(const string& paramFileName){
 
     SETVALUE(xt, String, leo.applicationName);
     SETVALUE(xt, String, leo.namesData);
-    SETVALUE(xt, String, leo.bandwidthData);
+    SETVALUE(xt, String, leo.throughputData);
     SETVALUE(xt, String, leo.powerData);
     SETVALUE(xt, Uint, leo.numSamples);
 
@@ -845,9 +908,13 @@ ParametersValidation Parameters::validate(){
     _knobEnabled[KNOB_VIRTUAL_CORES] = knobCoresEnabled;
     _knobEnabled[KNOB_MAPPING] = knobMappingEnabled;
     _knobEnabled[KNOB_HYPERTHREADING] = knobHyperthreadingEnabled;
+    _knobEnabled[KNOB_CLKMOD] = knobClkModEnabled;
 
     /** Validate frequency knob. **/
     ParametersValidation r = validateKnobFrequencies();
+    if(r != VALIDATION_OK){return r;}
+
+    r = validateKnobClkMod();
     if(r != VALIDATION_OK){return r;}
 
     /** Validate triggers. **/

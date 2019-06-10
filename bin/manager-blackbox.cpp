@@ -39,6 +39,7 @@
 #include <tclap/CmdLine.h>
 
 using namespace nornir;
+using namespace std;
 
 #undef DEBUG
 #undef DEBUGB
@@ -75,7 +76,7 @@ std::ostream& operator <<(std::ostream& os, const ScheduledProgram& instance){
 }
 
 void initializeParameters(Parameters& p){
-    p.requirements.bandwidth = NORNIR_REQUIREMENT_MAX;
+    p.requirements.throughput = NORNIR_REQUIREMENT_MAX;
     p.samplingIntervalCalibration = 100;
     p.samplingIntervalSteady = 1000;
     p.strategySelection = STRATEGY_SELECTION_LEARNING;

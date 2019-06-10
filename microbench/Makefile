@@ -21,6 +21,7 @@ checksupported:
 microbench:
 	cp ../src/external/mammut/demo/energy/voltageTable.cpp .
 	$(CXX) $(CXXFLAGS) -o voltageTable voltageTable.cpp $(INCS) -I../src/external/mammut/  -L../src/external/mammut/mammut $(LDFLAGS) $(LDLIBS)
+	$(CXX) $(CXXFLAGS) -o idlePower idlePower.cpp $(INCS) -I../src/external/mammut/  -L../src/external/mammut/mammut $(LDFLAGS) $(LDLIBS)
 	@echo ""
 	@echo ""
 	@echo "=============================== ATTENTION ==============================="

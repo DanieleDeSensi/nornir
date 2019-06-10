@@ -22,6 +22,9 @@ endif
 ifeq ("$(wildcard ./queues/hzdptr.o)","")
 	$(MAKE) -C queues msqueue
 endif
+ifeq ("$(wildcard ./queues/xxhash.o)","")
+	$(MAKE) -C queues msqueue
+endif
 # Build riff
 	$(MAKE) -C riff
 # Build graphite client

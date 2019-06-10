@@ -106,7 +106,7 @@ private:
     // Contains all the combinations between the possible allocations.
     // It is not sorted according to any specific order. Each combination
     // will be evaluated in order to find the best one according to some metric.
-    // For example, suppose to have 3 managers. This vector will contains a 
+    // For example, suppose to have 3 managers. This vector will contains a
     // certain number of entries. Each entry is composed by 3 numbers, for example:
     // ...
     // 2 9 4
@@ -131,7 +131,7 @@ private:
      */
     void waitForCalibration(Manager* m);
 
-    /** 
+    /**
      * Inhibits all the active managers except the one specified.
      * While inhibited, a manager ignores all the fluctuations on the
      * performance and/or power consumption.
@@ -175,7 +175,7 @@ private:
     void updateModels();
 
     /**
-     * Computes all the possible allocations. 
+     * Computes all the possible allocations.
      * @param array A vector containing all the possible values for each element.
      * @param i This is a recursive function. When called for the first time it must be 0.
      * @param accum This is a recursive functin. When called for the first time it must be empty.
@@ -236,7 +236,7 @@ private:
      * @param m The manager.
      * @param cores The vector containing the virtual cores identifiers.
      */
-    void allowCores(Manager* m, const std::vector<VirtualCoreId>& cores);
+    void allowCores(Manager* m, const std::vector<mammut::topology::VirtualCoreId>& cores);
 
     /**
      * Checks if a specified allocation is valid.

@@ -1,4 +1,4 @@
-CFLAGS+=-Wall
+CFLAGS+=-Wall -fPIC
 
 all: client
 

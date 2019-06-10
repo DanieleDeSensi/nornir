@@ -15,3 +15,11 @@ microbench/check
 microbench/ticksPerNs
 microbench/voltageTable
 microbench/voltageTable.cpp
+bin/selector-manual-web/server
+test/testConfiguration
+test/testKnobs
+test/testManager
+test/testParameters
+test/testSample
+test/testTrigger
+test/testParallelFor

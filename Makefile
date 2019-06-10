@@ -4,8 +4,8 @@ export NORNIR_PATH_INCLUDE   = $(NORNIR_PATH)/include/nornir
 
 export CC                    = gcc
 export CXX                   = g++ 
-export OPTIMIZE_FLAGS        = -finline-functions -O3 #-DPOOL
-export DEBUG_FLAGS           = #-DDEBUG_PREDICTORS -DDEBUG_SELECTORS #-DDEBUG_DF_STREAM -DDEBUG_NODE -DDEBUG_KNOB -DDEBUG_MANAGER
+export OPTIMIZE_FLAGS        = -finline-functions -O3 -g #-DPOOL
+export DEBUG_FLAGS           = #-DDEBUG_MANAGER -DDEBUG_PREDICTORS -DDEBUG_SELECTORS -DDEBUG_DF_STREAM -DDEBUG_NODE -DDEBUG_KNOB 
 export CXXFLAGS              = -Wall -pedantic --std=c++11 $(OPTIMIZE_FLAGS) $(DEBUG_FLAGS)
 export LDLIBS                = -lnornir -pthread -lrt -lm -lmlpack -llapack -lblas -lgsl -lgslcblas -larmadillo -lanl
 export INCS                  = -I$(realpath ./src/external/fastflow) -I$(realpath ./src/external/tclap-1.2.1/include) -I/usr/include/libxml2
@@ -34,18 +34,18 @@ cppcheck:
 # Compiles and runs all the tests.
 test:
 	$(MAKE) cleanall
-	$(MAKE) "COVERAGE_FLAGS=-fprofile-arcs -ftest-coverage"
+	$(MAKE) "NORNIR_COVERAGE_FLAGS=-fprofile-arcs -ftest-coverage"
 	$(MAKE) testquick
 testquick:
 	cd test && ./installdep.sh 
 	cd ..
-	$(MAKE) "COVERAGE_LIBS=-lgcov" -C test && cd test && ./runtests.sh
+	$(MAKE) "NORNIR_COVERAGE_LIBS=-lgcov" -C test && cd test && ./runtests.sh
 	cd ..
 gcov:
 	./test/gcov/gcov.sh
 # Performs all the checks
 develcheck:
-	$(MAKE) cppcheck && $(MAKE) test && $(MAKE) gcov && $(MAKE) bin
+	$(MAKE) cppcheck && $(MAKE) test && $(MAKE) gcov && $(MAKE) cleanall && $(MAKE) && $(MAKE) bin
 cleanall:
 	$(MAKE) -C src cleanall
 	$(MAKE) -C demo cleanall

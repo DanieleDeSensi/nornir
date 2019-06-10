@@ -12,7 +12,7 @@
  *  modify it under the terms of the Lesser GNU General Public
  *  License as published by the Free Software Foundation, either
  *  version 3 of the License, or (at your option) any later version.
-
+ 
  *  nornir is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -32,7 +32,7 @@
 #include <cfloat>
 #include <string>
 #include <iostream>
-#include <sstream> 
+#include <sstream>
 
 #undef DEBUG
 #undef DEBUGB
@@ -75,6 +75,7 @@ Selector::Selector(const Parameters& p,
         _calibrationAllowed(false),
         _totalTasks(0){
     _joulesCounter = _localMammut.getInstanceEnergy()->getCounter();
+    _numPhyCores = _p.mammut.getInstanceTopology()->getPhysicalCores().size();    
     //TODO Fare meglio con mammut
     //TODO Assicurarsi che il numero totale di configurazioni possibili sia maggiore del numero minimo di punti
 #if 0
@@ -89,14 +90,14 @@ Selector::Selector(const Parameters& p,
 }
 
 
-bool Selector::isFeasibleBandwidth(double value, bool conservative) const{
-    if(isPrimaryRequirement(_p.requirements.bandwidth)){
+bool Selector::isFeasibleThroughput(double value, bool conservative) const{
+    if(isPrimaryRequirement(_p.requirements.throughput)){
         double conservativeOffset = 0;
         if(conservative && _p.conservativeValue){
-            conservativeOffset = _p.requirements.bandwidth *
+            conservativeOffset = _p.requirements.throughput *
                                         (_p.conservativeValue / 100.0);
         }
-        if(value < _p.requirements.bandwidth + conservativeOffset){
+        if(value < _p.requirements.throughput + conservativeOffset){
             return false;
         }
     }
@@ -138,7 +139,7 @@ bool Selector::isFeasiblePower(double value, bool conservative) const{
 bool Selector::isContractViolated() const{
     if(_ignoreViolations){return false;}
     MonitoredSample avg = _samples->average();
-    return !isFeasibleBandwidth(avg.bandwidth, false) ||
+    return !isFeasibleThroughput(avg.throughput, false) ||
            !isFeasibleLatency(avg.latency, false)     ||
            !isFeasibleUtilization(avg.loadPercentage, false) ||
            !isFeasiblePower(avg.watts, false);
@@ -221,19 +222,19 @@ void Selector::updateTotalTasks(u_int64_t totalTasks){
 }
 
 void Selector::updateBandwidthIn(){
-    if(_samples->average().loadPercentage < MAX_RHO && 
-       _samples->average().loadPercentage != RIFF_VALUE_INCONSISTENT){
+    if(_samples->average().loadPercentage < MAX_RHO &&
+       !_samples->average().inconsistent){
         if(_bandwidthIn->average() == numeric_limits<double>::max()){
             _bandwidthIn->reset();
         }
-        _bandwidthIn->add(_samples->getLastSample().bandwidth);
+        _bandwidthIn->add(_samples->getLastSample().throughput);
     }else if(!_bandwidthIn->size()){
         _bandwidthIn->add(numeric_limits<double>::max());
     }
 }
 
 double Selector::initBestValue() const{
-    if(_p.requirements.bandwidth == NORNIR_REQUIREMENT_MAX){
+    if(_p.requirements.throughput == NORNIR_REQUIREMENT_MAX){
         return NORNIR_REQUIREMENT_MIN;
     }else{
         return NORNIR_REQUIREMENT_MAX;
@@ -241,7 +242,7 @@ double Selector::initBestValue() const{
 }
 
 double Selector::initBestSuboptimalValue() const{
-    if(isPrimaryRequirement(_p.requirements.bandwidth)){
+    if(isPrimaryRequirement(_p.requirements.throughput)){
         return NORNIR_REQUIREMENT_MIN;
     }
 
@@ -265,7 +266,32 @@ double Selector::initBestSuboptimalValue() const{
     return 0;
 }
 
+bool Selector::areKnobsValid(const KnobsValues& kv){
+  if(!_p.knobHyperthreadingEnabled){
+    return true;
+  }else{
+    double valueVC = kv[KNOB_VIRTUAL_CORES], valueHT = kv[KNOB_HYPERTHREADING];
 
+    if(!kv.areReal()){
+      Knob* kVC = _configuration.getKnob(KNOB_VIRTUAL_CORES);
+      Knob* kHT = _configuration.getKnob(KNOB_HYPERTHREADING);    
+      if(!kVC->getRealFromRelative(kv[KNOB_VIRTUAL_CORES], valueVC)){
+	return false;
+      }
+      if(!kHT->getRealFromRelative(kv[KNOB_HYPERTHREADING], valueHT)){
+	return false;
+      }
+    }
+
+    if(valueVC / valueHT <= _numPhyCores &&
+       (int) valueVC % (int) valueHT == 0){
+      return true;
+    }else{
+      return false;
+    }
+  }
+}
+    
 SelectorManualCli::SelectorManualCli(const Parameters& p,
                const Configuration& configuration,
                const Smoother<MonitoredSample>* samples):
@@ -353,13 +379,13 @@ KnobsValues SelectorFixed::getNextKnobsValues(){
 SelectorPredictive::SelectorPredictive(const Parameters& p,
                    const Configuration& configuration,
                    const Smoother<MonitoredSample>* samples,
-                   std::unique_ptr<Predictor> bandwidthPredictor,
+                   std::unique_ptr<Predictor> throughputPredictor,
                    std::unique_ptr<Predictor> powerPredictor):
                        Selector(p, configuration, samples),
-                       _bandwidthPredictor(std::move(bandwidthPredictor)),
+                       _throughputPredictor(std::move(throughputPredictor)),
                        _powerPredictor(std::move(powerPredictor)),
                        _feasible(true),
-                       _bandwidthPrediction(NOT_VALID),
+                       _throughputPrediction(NOT_VALID),
                        _powerPrediction(NOT_VALID){
     /****************************************/
     /*              Predictors              */
@@ -380,7 +406,7 @@ SelectorPredictive::~SelectorPredictive(){
     ;
 }
 
-double SelectorPredictive::getRealBandwidth(double predicted) const{
+double SelectorPredictive::getRealThroughput(double predicted) const{
     if(_bandwidthIn->size()){
         return min(predicted, _bandwidthIn->average());
     }else{
@@ -388,19 +414,19 @@ double SelectorPredictive::getRealBandwidth(double predicted) const{
     }
 }
 
-double SelectorPredictive::getBandwidthPrediction(const KnobsValues& values){
+double SelectorPredictive::getThroughputPrediction(const KnobsValues& values){
     auto observation = _observedValues.find(_configuration.getRealValues(values));
-    double maxBandwidth = 0.0;
+    double maxThroughput = 0.0;
     if(observation != _observedValues.end()){
-        maxBandwidth = observation->second.getMaximumBandwidth();
+        maxThroughput = observation->second.getMaximumThroughput();
     }else{
-        _bandwidthPredictor->prepareForPredictions();
-        maxBandwidth = _bandwidthPredictor->predict(values);
+        _throughputPredictor->prepareForPredictions();
+        maxThroughput = _throughputPredictor->predict(values);
     }
     if(isPrimaryRequirement(_p.requirements.minUtilization)){
-        return maxBandwidth;
+        return maxThroughput;
     }else{
-        return getRealBandwidth(maxBandwidth);
+        return getRealThroughput(maxThroughput);
     }
 }
 
@@ -430,12 +456,12 @@ const std::map<KnobsValues, double>& SelectorPredictive::getSecondaryPredictions
 #endif
 }
 
-bool SelectorPredictive::isBestMinMax(double bandwidth, double latency, double utilization,
+bool SelectorPredictive::isBestMinMax(double throughput, double latency, double utilization,
                                 double power, double& best){
-    // Bandwidth maximization
-    if(_p.requirements.bandwidth == NORNIR_REQUIREMENT_MAX){
-        if(bandwidth > best){
-            best = bandwidth;
+    // Throughput maximization
+    if(_p.requirements.throughput == NORNIR_REQUIREMENT_MAX){
+        if(throughput > best){
+            best = throughput;
             return true;
         }else{
             return false;
@@ -479,13 +505,13 @@ bool SelectorPredictive::isBestMinMax(double bandwidth, double latency, double u
     return true;
 }
 
-bool SelectorPredictive::isBestSuboptimal(double bandwidth, double latency,
+bool SelectorPredictive::isBestSuboptimal(double throughput, double latency,
                                           double utilization, double power,
                                           double& best){
-    // Bandwidth requirement
-    if(isPrimaryRequirement(_p.requirements.bandwidth)){
-        if(bandwidth > best){
-            best = bandwidth;
+    // Throughput requirement
+    if(isPrimaryRequirement(_p.requirements.throughput)){
+        if(throughput > best){
+            best = throughput;
             return true;
         }
     }
@@ -544,52 +570,60 @@ KnobsValues SelectorPredictive::getBestKnobsValues(){
     _feasible = false;
 
 #ifdef DEBUG_SELECTORS
-    double bestBandwidthPrediction = 0;
+    double bestThroughputPrediction = 0;
     //double bestLatencyPrediction = 0;
     double bestPowerPrediction = 0;
 
-    double bestSuboptimalBandwidthPrediction = 0;
+    double bestSuboptimalThroughputPrediction = 0;
     //double bestSuboptimalLatencyPrediction = 0;
     double bestSuboptimalPowerPrediction = 0;
 #endif
-
+    bool bestKnobsSet = false;
     const vector<KnobsValues>& combinations = _configuration.getAllRealCombinations();
     for(const KnobsValues& currentValues : combinations){
-        double bandwidthPrediction = getBandwidthPrediction(currentValues);
+        if(!areKnobsValid(currentValues)){
+	    continue;
+	}
+	
+        double throughputPrediction = getThroughputPrediction(currentValues);
         double powerPrediction = getPowerPrediction(currentValues);
         double utilizationPrediction = _bandwidthIn->average() /
-                                       bandwidthPrediction * 100.0;
+                                       throughputPrediction * 100.0;
+
         // Skip negative predictions
-        if(bandwidthPrediction < 0 ||
+        if(throughputPrediction < 0 ||
            powerPrediction < 0 ||
            utilizationPrediction < 0){
             continue;
         }
 
-        updateMaxPerformanceConfiguration(currentValues, bandwidthPrediction);
+        updateMaxPerformanceConfiguration(currentValues, throughputPrediction);
 #if STORE_PREDICTIONS
-        _performancePredictions[currentValues] = bandwidthPrediction;
+        _performancePredictions[currentValues] = throughputPrediction;
         _powerPredictions[currentValues] = powerPrediction;
 #endif
 
+#if 1
         DEBUG("Prediction: " << currentValues << " "
-                             << bandwidthPrediction << " "
+                             << throughputPrediction << " "
                              << powerPrediction);
-
-        if(isFeasibleBandwidth(bandwidthPrediction, true) &&
+#endif
+        if(isFeasibleThroughput(throughputPrediction, true) &&
            isFeasibleLatency(0, true) &&
            isFeasibleUtilization(utilizationPrediction, true) &&
            isFeasiblePower(powerPrediction, true)){
             _feasible = true;
-            if(isBestMinMax(bandwidthPrediction, 0, utilizationPrediction,
-                            powerPrediction, bestValue)){
+            if(isBestMinMax(throughputPrediction, 0, utilizationPrediction,
+                            powerPrediction, bestValue) ||
+               !bestKnobsSet){
 #ifdef DEBUG_SELECTORS
-                bestBandwidthPrediction = bandwidthPrediction;
+                bestThroughputPrediction = throughputPrediction;
                 bestPowerPrediction = powerPrediction;
 #endif
                 bestKnobs = currentValues;
+                bestKnobsSet = true;
             }
-        }else if(isBestSuboptimal(bandwidthPrediction, 0, utilizationPrediction,
+        }else if(isBestSuboptimal(throughputPrediction, 0, utilizationPrediction,
                                   powerPrediction, bestSuboptimalValue)){
             // TODO In realta' per controllare se e' un sottoottimale
             // migliore bisognerebbe prendere la configurazione che soddisfa
@@ -597,7 +631,7 @@ KnobsValues SelectorPredictive::getBestKnobsValues(){
             // Solo in un secondo momento, se non ne soddisfa nessuno, si va
             // a cercare quello piu' 'vicino'
 #ifdef DEBUG_SELECTORS
-            bestSuboptimalBandwidthPrediction = bandwidthPrediction;
+            bestSuboptimalThroughputPrediction = throughputPrediction;
             bestSuboptimalPowerPrediction = powerPrediction;
 #endif
             bestSuboptimalKnobs = currentValues;
@@ -606,19 +640,19 @@ KnobsValues SelectorPredictive::getBestKnobsValues(){
 
     if(_feasible){
         DEBUG("Best solution found: " << bestKnobs);
-        DEBUG("Bandwidth prediction: " << bestBandwidthPrediction);
+        DEBUG("Throughput prediction: " << bestThroughputPrediction);
         DEBUG("Power prediction: " << bestPowerPrediction);
         return bestKnobs;
     }else{
         DEBUG("Suboptimal solution found: " << bestSuboptimalKnobs);
-        DEBUG("Bandwidth prediction: " << bestSuboptimalBandwidthPrediction);
+        DEBUG("Throughput prediction: " << bestSuboptimalThroughputPrediction);
         DEBUG("Power prediction: " << bestSuboptimalPowerPrediction);
         return bestSuboptimalKnobs;
     }
 }
 
 void SelectorPredictive::refine(){
-    _bandwidthPredictor->refine();
+    _throughputPredictor->refine();
     _powerPredictor->refine();
     if(_p.strategySelection == STRATEGY_SELECTION_LEARNING){
         _observedValues[_configuration.getRealValues()] = _samples->average();
@@ -627,24 +661,24 @@ void SelectorPredictive::refine(){
 
 void SelectorPredictive::updatePredictions(const KnobsValues& next){
     const KnobsValues real = _configuration.getRealValues(next);
-    _bandwidthPrediction = getBandwidthPrediction(real);
+    _throughputPrediction = getThroughputPrediction(real);
     _powerPrediction = getPowerPrediction(real);
 }
 
 bool SelectorPredictive::predictorsReady() const{
-    return _bandwidthPredictor->readyForPredictions() &&
+    return _throughputPredictor->readyForPredictions() &&
            _powerPredictor->readyForPredictions();
 }
 
 bool SelectorPredictive::predictionsDone() const{
-    return _bandwidthPrediction != NOT_VALID &&
+    return _throughputPrediction != NOT_VALID &&
            _powerPrediction != NOT_VALID;
 }
 
 void SelectorPredictive::clearPredictors(){
-    _bandwidthPredictor->clear();
+    _throughputPredictor->clear();
     _powerPredictor->clear();
-    _bandwidthPrediction = NOT_VALID;
+    _throughputPrediction = NOT_VALID;
     _powerPrediction = NOT_VALID;
     _observedValues.clear();
 }
@@ -659,19 +693,19 @@ bool SelectorPredictive::isMaxPerformanceConfiguration() const{
 }
 
 bool SelectorLearner::isAccurate(){
-    double predictedMaxBandwidth = _bandwidthPrediction;
+    double predictedMaxThroughput = _throughputPrediction;
     double predictedPower = _powerPrediction;
 
-    double maxBandwidth = _samples->average().getMaximumBandwidth();
+    double maxThroughput = _samples->average().getMaximumThroughput();
     double power = _samples->average().watts;
 
     if(_p.requirements.minUtilization != NORNIR_REQUIREMENT_UNDEF){
-        predictedMaxBandwidth = _bandwidthIn->average() /
-                                (_bandwidthPrediction / 100.0);
+        predictedMaxThroughput = _bandwidthIn->average() /
+                                (_throughputPrediction / 100.0);
     }
 
-    double performanceError = std::abs((maxBandwidth - predictedMaxBandwidth) /
-                                        maxBandwidth*100.0);
+    double performanceError = std::abs((maxThroughput - predictedMaxThroughput) /
+                                        maxThroughput*100.0);
     double powerError = std::abs((power - predictedPower) / power*100.0);
 
     DEBUG("Perf error: " << performanceError);
@@ -688,6 +722,17 @@ bool SelectorLearner::isAccurate(){
     }
 }
 
+KnobsValues SelectorLearner::getNextMeaningfulKnobsValues(Explorer* explorer){
+  while(true){
+    KnobsValues kv = explorer->nextRelativeKnobsValues();
+    if(areKnobsValid(kv)){
+      return kv;
+    }
+  }
+  throw std::runtime_error("No valid knobs. This situation should never happen!");
+}
+  
+
 bool SelectorPredictive::isBestSolutionFeasible() const{
     return _feasible;
 }
@@ -696,7 +741,7 @@ SelectorAnalytical::SelectorAnalytical(const Parameters& p,
                const Configuration& configuration,
                const Smoother<MonitoredSample>* samples):
     SelectorPredictive(p, configuration, samples,
-                       std::unique_ptr<Predictor>(new PredictorAnalytical(PREDICTION_BANDWIDTH, p, configuration, samples)),
+                       std::unique_ptr<Predictor>(new PredictorAnalytical(PREDICTION_THROUGHPUT, p, configuration, samples)),
                        std::unique_ptr<Predictor>(new PredictorAnalytical(PREDICTION_POWER, p, configuration, samples))),
     _violations(0), _firstPointGenerated(false){
     ;
@@ -705,12 +750,13 @@ SelectorAnalytical::SelectorAnalytical(const Parameters& p,
 KnobsValues SelectorAnalytical::getNextKnobsValues(){
     _previousConfiguration = _configuration.getRealValues();
     KnobsValues kv;
+
     if(!_firstPointGenerated){
         kv = getBestKnobsValues();
     }
 
-    if(isContractViolated() || (isPrimaryRequirement(_p.requirements.bandwidth) &&
-                                _samples->average().bandwidth < _p.requirements.bandwidth)){        
+    if(isContractViolated() || (isPrimaryRequirement(_p.requirements.throughput) &&
+                                _samples->average().throughput < _p.requirements.throughput)){
         if(++_violations > _p.tolerableSamples){
             _violations = 0;
             kv = getBestKnobsValues();
@@ -751,13 +797,39 @@ void SelectorAnalytical::updateBandwidthIn(){
     }
 }
 
+SelectorAnalyticalFull::SelectorAnalyticalFull(const Parameters& p,
+                                       const Configuration& configuration,
+                                       const Smoother<MonitoredSample>* samples):
+    SelectorPredictive(p, configuration, samples,
+                       std::unique_ptr<Predictor>(new PredictorAnalytical(PREDICTION_THROUGHPUT, p, configuration, samples)),
+                       std::unique_ptr<Predictor>(new PredictorAnalyticalFull(PREDICTION_POWER, p, configuration, samples))){
+    ;
+}
+
+KnobsValues SelectorAnalyticalFull::getNextKnobsValues(){
+    _previousConfiguration = _configuration.getRealValues();
+    return getBestKnobsValues(); 
+}
+
+void SelectorAnalyticalFull::updateBandwidthIn(){
+    // For this selector we do not consider input bandwidth for contracts
+    // different from the utilization one.                                                                                                                                                                        
+    if(isPrimaryRequirement(_p.requirements.minUtilization)){
+        Selector::updateBandwidthIn();
+    }else{
+        ;
+    }
+}
+
+
+
 std::unique_ptr<Predictor> SelectorLearner::getPredictor(PredictorType type,
                                                          const Parameters& p,
                                                          const Configuration& configuration,
                                                          const Smoother<MonitoredSample>* samples) const{
     Predictor* predictor;
     switch(type){
-        case PREDICTION_BANDWIDTH:{
+        case PREDICTION_THROUGHPUT:{
             switch(p.strategyPredictionPerformance){
                 case STRATEGY_PREDICTION_PERFORMANCE_AMDAHL:{
                     if(p.knobMappingEnabled){
@@ -777,6 +849,9 @@ std::unique_ptr<Predictor> SelectorLearner::getPredictor(PredictorType type,
                 case STRATEGY_PREDICTION_PERFORMANCE_LEO:{
                     predictor = new PredictorLeo(type, p, configuration, samples);
                 }break;
+                case STRATEGY_PREDICTION_PERFORMANCE_SMT:{
+                    predictor = new PredictorSMT(type, p, configuration, samples);
+                }break;
                 default:{
                     throw std::runtime_error("Unknown prediction strategy.");
                 }break;
@@ -794,6 +869,9 @@ std::unique_ptr<Predictor> SelectorLearner::getPredictor(PredictorType type,
                 case STRATEGY_PREDICTION_POWER_LEO:{
                     predictor = new PredictorLeo(type, p, configuration, samples);
                 }break;
+                case STRATEGY_PREDICTION_POWER_SMT:{
+                    predictor = new PredictorSMT(type, p, configuration, samples);
+                }break;
                 default:{
                     throw std::runtime_error("Unknown prediction strategy.");
                 }break;
@@ -807,7 +885,7 @@ SelectorLearner::SelectorLearner(const Parameters& p,
                    const Configuration& configuration,
                    const Smoother<MonitoredSample>* samples):
              SelectorPredictive(p, configuration, samples,
-                                getPredictor(PREDICTION_BANDWIDTH, p, configuration, samples),
+                                getPredictor(PREDICTION_THROUGHPUT, p, configuration, samples),
                                 getPredictor(PREDICTION_POWER, p, configuration, samples)),
              _explorer(NULL), _firstPointGenerated(false),
              _contractViolations(0), _accuracyViolations(0), _totalCalPoints(0),
@@ -822,21 +900,28 @@ SelectorLearner::SelectorLearner(const Parameters& p,
     if(_p.strategyPredictionPerformance == STRATEGY_PREDICTION_PERFORMANCE_USL ||
        _p.strategyPredictionPerformance == STRATEGY_PREDICTION_PERFORMANCE_USLP){
         KnobsValues kv(KNOB_VALUE_RELATIVE);
-        // For the precise version of USL, we need to also take the bandwidth with
+        // For the precise version of USL, we need to also take the throughput with
         // parallelism degree equal to one.
         if(_p.strategyPredictionPerformance == STRATEGY_PREDICTION_PERFORMANCE_USLP){
             kv.reset();
             kv[KNOB_VIRTUAL_CORES] = 0.0;
             kv[KNOB_FREQUENCY] = 0.0;
+            kv[KNOB_CLKMOD] = 0.0;
             additionalPoints.push_back(kv);
         }
-        kv[KNOB_VIRTUAL_CORES] = 100.0;
-        kv[KNOB_FREQUENCY] = 100;
-        additionalPoints.push_back(kv);
         kv.reset();
         kv[KNOB_VIRTUAL_CORES] = 100.0;
-        kv[KNOB_FREQUENCY] = 0.0;
+        kv[KNOB_FREQUENCY] = 100;
+        kv[KNOB_CLKMOD] = 100.0;
         additionalPoints.push_back(kv);
+        if(_p.knobFrequencyEnabled || 
+           _p.knobClkModEnabled){
+            kv.reset();
+            kv[KNOB_VIRTUAL_CORES] = 100.0;
+            kv[KNOB_FREQUENCY] = 0.0;
+            kv[KNOB_CLKMOD] = 0.0;
+            additionalPoints.push_back(kv);
+        }
 
         // I only need to explore on virtual cores.
         knobsFlags[KNOB_VIRTUAL_CORES] = true;
@@ -845,6 +930,33 @@ SelectorLearner::SelectorLearner(const Parameters& p,
         // I only need to explore on virtual cores and frequency.
         knobsFlags[KNOB_VIRTUAL_CORES] = true;
         knobsFlags[KNOB_FREQUENCY] = true;
+    }else if(_p.strategyPredictionPerformance == STRATEGY_PREDICTION_PERFORMANCE_SMT ||
+             _p.strategyPredictionPower == STRATEGY_PREDICTION_POWER_SMT){
+	KnobsValues kv(KNOB_VALUE_RELATIVE);
+
+	kv.reset();
+	kv[KNOB_VIRTUAL_CORES] = 0.0;
+	kv[KNOB_FREQUENCY] = 0.0;
+	kv[KNOB_HYPERTHREADING] = 0.0;
+	additionalPoints.push_back(kv);
+
+	kv.reset();
+	kv[KNOB_VIRTUAL_CORES] = 0.0;
+	kv[KNOB_FREQUENCY] = 100.0;
+	kv[KNOB_HYPERTHREADING] = 0.0;
+	additionalPoints.push_back(kv);
+
+	kv.reset();
+	kv[KNOB_VIRTUAL_CORES] = 100.0;
+	kv[KNOB_FREQUENCY] = 0.0;
+	kv[KNOB_HYPERTHREADING] = 100.0;
+	additionalPoints.push_back(kv);
+
+	//I only need to explore on virtual cores, frequency and contexts
+	knobsFlags[KNOB_VIRTUAL_CORES] = true;
+	knobsFlags[KNOB_FREQUENCY] = true;
+	knobsFlags[KNOB_HYPERTHREADING] = true;
+	        
     }else{
         for(size_t i = 0; i < KNOB_NUM; i++){
             knobsFlags[i] = _p.isKnobEnabled((KnobType) i);
@@ -929,7 +1041,7 @@ KnobsValues SelectorLearner::getNextKnobsValues(){
 
     if(isCalibrating()){
         if(!predictorsReady()){
-            kv = _explorer->nextRelativeKnobsValues();
+   	    kv = getNextMeaningfulKnobsValues(_explorer);
             ++_numCalibrationPoints;
         }else{
             if(predictionsDone() && accurate){
@@ -942,7 +1054,7 @@ KnobsValues SelectorLearner::getNextKnobsValues(){
                 // since the next one will be (hopefully) the definitive
                 // configuration.
             }else{
-                kv = _explorer->nextRelativeKnobsValues();
+	        kv = getNextMeaningfulKnobsValues(_explorer);
                 updatePredictions(kv);
                 ++_numCalibrationPoints;
             }
@@ -954,7 +1066,7 @@ KnobsValues SelectorLearner::getNextKnobsValues(){
         if(phaseChanged()){
             /******************* Phase change. *******************/
             _explorer->reset();
-            kv = _explorer->nextRelativeKnobsValues();
+            kv = getNextMeaningfulKnobsValues(_explorer);
 
             // Drop old models.
             clearPredictors();
@@ -983,7 +1095,7 @@ KnobsValues SelectorLearner::getNextKnobsValues(){
                  ((!accurate && _accuracyViolations > _p.tolerableSamples) ||
                   (isBestSolutionFeasible() && !_forced && contractViolated && _contractViolations > _p.tolerableSamples))){
             /******************* More calibration points. *******************/
-            kv = _explorer->nextRelativeKnobsValues();
+	    kv = getNextMeaningfulKnobsValues(_explorer); 
             updatePredictions(kv);
             refine();
             ++_totalCalPoints;
@@ -1054,10 +1166,10 @@ bool SelectorLearner::areModelsUpdated() const{
 SelectorFixedExploration::SelectorFixedExploration(const Parameters& p,
                const Configuration& configuration,
                const Smoother<MonitoredSample>* samples,
-               std::unique_ptr<Predictor> bandwidthPredictor,
+               std::unique_ptr<Predictor> throughputPredictor,
                std::unique_ptr<Predictor> powerPredictor,
                size_t numSamples):
-            SelectorPredictive(p, configuration, samples, std::move(bandwidthPredictor), std::move(powerPredictor)){
+            SelectorPredictive(p, configuration, samples, std::move(throughputPredictor), std::move(powerPredictor)){
     const std::vector<KnobsValues>& combinations = _configuration.getAllRealCombinations();
     size_t numConfigurations = combinations.size();
     for(size_t i = 0; i < numConfigurations; i += ceil((double)numConfigurations/numSamples)){
@@ -1097,7 +1209,7 @@ SelectorLeo::SelectorLeo(const Parameters& p,
                const Configuration& configuration,
                const Smoother<MonitoredSample>* samples):
         SelectorFixedExploration(p, configuration, samples,
-                       std::unique_ptr<Predictor>(new PredictorLeo(PREDICTION_BANDWIDTH, p, configuration, samples)),
+                       std::unique_ptr<Predictor>(new PredictorLeo(PREDICTION_THROUGHPUT, p, configuration, samples)),
                        std::unique_ptr<Predictor>(new PredictorLeo(PREDICTION_POWER, p, configuration, samples)),
                        p.leo.numSamples){
     ;
@@ -1111,7 +1223,7 @@ SelectorFullSearch::SelectorFullSearch(const Parameters& p,
                const Configuration& configuration,
                const Smoother<MonitoredSample>* samples):
         SelectorFixedExploration(p, configuration, samples,
-                       std::unique_ptr<Predictor>(new PredictorFullSearch(PREDICTION_BANDWIDTH, p, configuration, samples)),
+                       std::unique_ptr<Predictor>(new PredictorFullSearch(PREDICTION_THROUGHPUT, p, configuration, samples)),
                        std::unique_ptr<Predictor>(new PredictorFullSearch(PREDICTION_POWER, p, configuration, samples)),
                        configuration.getAllRealCombinations().size()){
     ;
@@ -1125,7 +1237,7 @@ Frequency SelectorLiMartinez::findNearestFrequency(Frequency f) const{
     Frequency bestDistance = _availableFrequencies.back();
     Frequency bestFrequency = _availableFrequencies.back();
     for(size_t i = 0; i < _availableFrequencies.size(); i++){
-        Frequency distance = std::abs(_availableFrequencies.at(i) - f);
+        Frequency distance = std::abs(static_cast<long long>(_availableFrequencies.at(i) - f));
         if(distance < bestDistance){
             bestDistance = distance;
             bestFrequency = _availableFrequencies.at(i);
@@ -1163,9 +1275,10 @@ SelectorLiMartinez::SelectorLiMartinez(const Parameters& p,
         _currentWatts(DBL_MAX), _optimalWatts(DBL_MAX),
         _optimalWorkers(configuration.getKnob(KNOB_VIRTUAL_CORES)->getAllowedValues().back()),
         _currentBw(0),_leftBw(0), _rightBw(0), _improved(false), _optimalFound(false){
-    Domain* d = _p.mammut.getInstanceCpuFreq()->getDomains().back();
-    d->removeTurboFrequencies();
-    _availableFrequencies = d->getAvailableFrequencies();
+
+    for(auto it : _configuration.getKnob(KNOB_FREQUENCY)->getAllowedValues()){
+        _availableFrequencies.push_back((Frequency) it);
+    }
     _optimalFrequency = _availableFrequencies.back();
     _allowedCores = configuration.getKnob(KNOB_VIRTUAL_CORES)->getAllowedValues();
 }
@@ -1215,7 +1328,7 @@ KnobsValues SelectorLiMartinez::getNextKnobsValues(){
             Frequency currentFrequency = _configuration.getKnob(KNOB_FREQUENCY)->getRealValue();
             kv[KNOB_VIRTUAL_CORES] = _configuration.getKnob(KNOB_VIRTUAL_CORES)->getRealValue();
 
-            Frequency nextFrequency = currentFrequency * (_p.requirements.bandwidth / _samples->average().bandwidth);
+            Frequency nextFrequency = currentFrequency * (_p.requirements.throughput / _samples->average().throughput);
             nextFrequency = findNearestFrequency(nextFrequency);
             if(nextFrequency == currentFrequency){
                 --_numCalibrationPoints;

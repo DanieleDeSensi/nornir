@@ -52,7 +52,9 @@
  *             strategySelection = STRATEGY_SELECTION_LIMARTINEZ
  *         and also with
  *             knobMappingEnabled = false
- *
+ * - PPAM2019:
+ *         strategySelection = STRATEGY_SELECTION_ANALYTICAL_FULL
+ *         knobMappingEnabled = false
  */
 
 
@@ -87,7 +89,8 @@ typedef enum{
     KNOB_VIRTUAL_CORES = 0, // Number of contexts to be used.
     KNOB_HYPERTHREADING, // Number of contexts to be used on each physical core.
     KNOB_MAPPING, // Mapping of threads on physical cores.
-    KNOB_FREQUENCY,
+    KNOB_FREQUENCY, // Clock frequency of the cores.
+    KNOB_CLKMOD, // Clock modulation.
     KNOB_NUM  // <---- This must always be the last value
 }KnobType;
 
@@ -139,6 +142,9 @@ typedef enum{
     // Applies a simple analytical model.
     STRATEGY_SELECTION_ANALYTICAL,
 
+    // Applies a simple analytical model (to predict both power and performance).
+    STRATEGY_SELECTION_ANALYTICAL_FULL,
+
     // Tries all the configurations in order to find the best one.
     STRATEGY_SELECTION_FULLSEARCH,
 
@@ -163,6 +169,7 @@ typedef enum{
     STRATEGY_PREDICTION_PERFORMANCE_USL,
     STRATEGY_PREDICTION_PERFORMANCE_USLP, // <- More precise than USL but needs one additional calibration point.
     STRATEGY_PREDICTION_PERFORMANCE_LEO,
+    STRATEGY_PREDICTION_PERFORMANCE_SMT, // <-  Support for Simultaneous Multi-Threading
     STRATEGY_PREDICTION_PERFORMANCE_NUM // <- This must always be the last.
 }StrategyPredictionPerformance;
 
@@ -171,6 +178,7 @@ typedef enum{
 typedef enum{
     STRATEGY_PREDICTION_POWER_LINEAR = 0,
     STRATEGY_PREDICTION_POWER_LEO,
+    STRATEGY_PREDICTION_POWER_SMT, // <-  Support for Simultaneous Multi-Threading
     STRATEGY_PREDICTION_POWER_NUM // <- This must always be the last.
 }StrategyPredictionPower;
 
@@ -303,6 +311,9 @@ typedef enum{
 
     // Parameters for Leo predictors not specified.
     VALIDATION_NO_LEO_PARAMETERS,
+
+    // Clock modulation not available.
+    VALIDATION_NO_CLKMOD,
 }ParametersValidation;
 
 /**
@@ -456,12 +467,16 @@ typedef struct ArchData{
     // Number of ticks for a nanosecond.
     double ticksPerNs;
 
+    // Idle power (Watts)
+    double idlePower;
+
     // Number of ticks spent by a worker to reply to a monitoring request.
     double monitoringCost;
 
     mammut::cpufreq::VoltageTable voltageTable;
 
     ArchData():ticksPerNs(0),
+               idlePower(0),
                monitoringCost(0){;}
 
     void loadXml(const std::string& archFileName);
@@ -474,10 +489,10 @@ typedef struct ArchData{
  * This class contains the requirements specified by the user.
  */
 typedef struct Requirements{
-    // The bandwidth required for the application (expressed as tasks/sec).
+    // The throughput required for the application (expressed as tasks/sec).
     // It must be greater or equal than 0.
     // [default = unused].
-    double bandwidth;
+    double throughput;
 
     // The maximum cores power to be used.
     // It must be greater or equal than 0.
@@ -527,14 +542,14 @@ typedef struct{
     std::string applicationName;
     /**
      * File containing the names of the applications, in the same
-     * order of the columns in bandwidth and power data.
+     * order of the columns in throughput and power data.
      */
     std::string namesData;
     /**
-     * File containing the data about the bandwidth. One column per application,
+     * File containing the data about the throughput. One column per application,
      * one row per configuration. Data doesn't need to be normalized.
      */
-    std::string bandwidthData;
+    std::string throughputData;
     /**
      * File containing the data about the power. One column per application,
      * one row per configuration. Data doesn't need to be normalized.
@@ -581,7 +596,7 @@ typedef struct{
  */
 class Parameters{
     friend class Manager;
-private:    
+private:
     // The type of loggers to be activated.
     // It MUST be private because only the manager
     // needs to access it. The loggers created by
@@ -665,6 +680,12 @@ private:
     ParametersValidation validateKnobFrequencies();
 
     /**
+     * Validates the clock modulation knob.
+     * @return The result of the validation.
+     **/
+    ParametersValidation validateKnobClkMod();
+
+    /**
      * Validates the triggers.
      * @return The result of the validation.
      */
@@ -676,7 +697,7 @@ private:
      */
     ParametersValidation validateRequirements();
 
-    /**                                                                                                                                                
+    /**
      * Validates the selector.
      * @return The result of the validation.
      */
@@ -744,6 +765,9 @@ public:
 
     // Flag to enable/disable frequency knob autotuning [default = true].
     bool knobFrequencyEnabled;
+
+    // Flag to enable/disable clock modulation autotuning [default = false].
+    bool knobClkModEnabled;
 
     // Flag to enable/disable hyperthreading knob autotuning [default = false].
     bool knobHyperthreadingEnabled;
@@ -845,6 +869,25 @@ public:
     // [default = 1.0].
     double maxMonitoringOverhead;
 
+    // If true, clock modulation will be emulated, instead of using hardware
+    // clock modulation [default = true].
+    bool clockModulationEmulated;
+
+    // The minimum value that can be used for clock modulation, in the range (0, 100).
+    // Only valid if clockModulationEmulated = true.
+    // [default = 1].
+    double clockModulationMin;
+
+    // Resolution of the clock modulation, in the range (0, 100).
+    // Only valid if clockModulationEmulated = true.
+    // [default = 2].
+    double clockModulationResolution;
+
+    // Interval of the clock modulation, in microseconds.
+    // Only valid if clockModulationEmulated = true.
+    // [default = 100000].
+    double clockModulationInterval;
+
     // Idle threshold (in microseconds) to switch from non blocking to blocking
     // runtime support. If the current idle time goes above this value,
     // and if the runtime has been configured to do so, it will switch
@@ -896,14 +939,14 @@ public:
     // Parameters for dataflow applications.
     DataflowParameters dataflow;
 
-    // This is the path of the file used to signal begin/end of a 
+    // This is the path of the file used to signal begin/end of a
     // (region of interest). This file should be created when the
     // application enters the ROI and deleted when the application
     // exits the ROI. It can be used for example on PARSEC applications
     // in order to control only the region of interest of the application
     // excluding initialization and cleanup phases. In that case, the
     // file would be created in the roi_start hook and deleted in the
-    // roi_end hook. If not specified or if empty string, the application 
+    // roi_end hook. If not specified or if empty string, the application
     // will be monitored and controlled throughout its entire execution
     // [default = ""].
     std::string roiFile;

@@ -61,6 +61,13 @@
 #include <ff/multinode.hpp>
 #include <ff/fftree.hpp>
 
+#ifdef NORNIR_NEW_FF_API_SUPPORT
+namespace nornir{
+    template<typename TIN, typename TOUT=TIN, typename FUNC=std::function<TOUT*(TIN*, ff::ff_node* const)> > 
+    struct nrnr_node_F;
+}
+#endif
+
 namespace ff {
 
 
@@ -1993,14 +2000,19 @@ public:
 
 
     /* --- */
-
     template <typename FUNC_t>
     explicit ff_Farm(FUNC_t F, ssize_t nw, bool input_ch=false): 
         ff_farm<>(input_ch,DEF_IN_BUFF_ENTRIES, DEF_OUT_BUFF_ENTRIES,
                   true, nw) {
 
         std::vector<ff_node*> w(nw);        
-        for(int i=0;i<nw;++i) w[i]=new ff_node_F<IN_t,OUT_t>(F);
+        for(int i=0;i<nw;++i) {
+#ifdef NORNIR_NEW_FF_API_SUPPORT
+            w[i]=new nornir::nrnr_node_F<IN_t, OUT_t, std::function<OUT_t*(IN_t*, ff_node* const)> >(F);       
+#else
+            w[i]=new ff_node_F<IN_t,OUT_t>(F);
+#endif
+        }
         ff_farm<>::add_workers(w);
         ff_farm<>::add_collector(NULL);
 

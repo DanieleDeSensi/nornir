@@ -26,9 +26,10 @@
  */
 
 #include "configuration.hpp"
+#include <iostream>
 
 #ifdef DEBUG_CONFIGURATION
-#define DEBUG(x) do { cerr << "[Configuration] " << x << endl; } while (0)
+#define DEBUG(x) do { std::cerr << "[Configuration] " << x << std::endl; } while (0)
 #define DEBUGB(x) do {x;} while(0)
 #else
 #define DEBUG(x)
@@ -248,7 +249,12 @@ ConfigurationExternal::ConfigurationExternal(const Parameters& p):
                                                 *dynamic_cast<KnobVirtualCores*>(_knobs[KNOB_VIRTUAL_CORES]),
                                                 *dynamic_cast<KnobHyperThreading*>(_knobs[KNOB_HYPERTHREADING]));
     _knobs[KNOB_FREQUENCY] = new KnobFrequency(p,
-                                                    *dynamic_cast<KnobMappingExternal*>(_knobs[KNOB_MAPPING]));
+                                               *dynamic_cast<KnobMappingExternal*>(_knobs[KNOB_MAPPING]));
+    if(p.clockModulationEmulated){
+        _knobs[KNOB_CLKMOD] = new KnobClkModEmulated(p);
+    }else{
+        _knobs[KNOB_CLKMOD] = new KnobClkMod(p, *dynamic_cast<KnobMappingExternal*>(_knobs[KNOB_MAPPING]));
+    }
 
     _triggers[TRIGGER_TYPE_Q_BLOCKING] = NULL;
 }
@@ -272,6 +278,11 @@ ConfigurationFarm::ConfigurationFarm(const Parameters& p,
                                                emitter, collector);
     _knobs[KNOB_FREQUENCY] = new KnobFrequency(p,
                                                *dynamic_cast<KnobMappingFarm*>(_knobs[KNOB_MAPPING]));
+    if(p.clockModulationEmulated){
+        _knobs[KNOB_CLKMOD] = new KnobClkModEmulated(p);
+    }else{
+        _knobs[KNOB_CLKMOD] = new KnobClkMod(p, *dynamic_cast<KnobMappingExternal*>(_knobs[KNOB_MAPPING]));
+    }
 
     _triggers[TRIGGER_TYPE_Q_BLOCKING] = new TriggerQBlocking(p.triggerQBlocking,
                                                               p.thresholdQBlocking,
@@ -282,6 +293,30 @@ ConfigurationFarm::ConfigurationFarm(const Parameters& p,
     if(emitter){++_numServiceNodes;}
     if(collector){++_numServiceNodes;}
 }
+
+ConfigurationPipe::ConfigurationPipe(const Parameters& p,
+                                    Smoother<MonitoredSample> const* samples,
+                                    std::vector<KnobVirtualCoresFarm*> farms,
+                                    std::vector<std::vector<double>> allowedValues):
+        Configuration(p){
+    _knobs[KNOB_VIRTUAL_CORES] = new KnobVirtualCoresPipe(p, farms, allowedValues);
+
+    _knobs[KNOB_HYPERTHREADING] = new KnobHyperThreading(p);
+    _knobs[KNOB_MAPPING] = new KnobMappingExternal(p,
+                                                *dynamic_cast<KnobVirtualCores*>(_knobs[KNOB_VIRTUAL_CORES]),
+                                                *dynamic_cast<KnobHyperThreading*>(_knobs[KNOB_HYPERTHREADING]));
+    _knobs[KNOB_FREQUENCY] = new KnobFrequency(p,
+                                               *dynamic_cast<KnobMappingExternal*>(_knobs[KNOB_MAPPING]));
+
+    if(p.clockModulationEmulated){
+        _knobs[KNOB_CLKMOD] = new KnobClkModEmulated(p);
+    }else{
+        _knobs[KNOB_CLKMOD] = new KnobClkMod(p, *dynamic_cast<KnobMappingExternal*>(_knobs[KNOB_MAPPING]));
+    }
+
+    _triggers[TRIGGER_TYPE_Q_BLOCKING] = NULL;
+}
+
 
 std::vector<AdaptiveNode*> convertWorkers(ff::svector<ff::ff_node*> w){
     std::vector<AdaptiveNode*> r;

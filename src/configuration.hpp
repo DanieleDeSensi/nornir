@@ -36,6 +36,7 @@
 #include "trigger.hpp"
 
 #include "external/mammut/mammut/utils.hpp"
+#include "external/fastflow/ff/pipeline.hpp"
 
 namespace nornir{
 
@@ -170,6 +171,14 @@ public:
                       AdaptiveNode* collector,
                       ff::ff_gatherer* gt,
                       volatile bool* terminated);
+};
+
+class ConfigurationPipe: public Configuration{
+public:
+    ConfigurationPipe(const Parameters& p,
+                      Smoother<MonitoredSample> const* samples,
+                      std::vector<KnobVirtualCoresFarm*> farms,
+                      std::vector<std::vector<double>> allowedValues);
 };
 
 std::vector<AdaptiveNode*> convertWorkers(ff::svector<ff::ff_node*> w);

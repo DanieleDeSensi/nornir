@@ -51,7 +51,7 @@ int main(int argc, char** argv){
                     "| cores clock ticks. This constraint is not imposed   |\n"
                     "| by the algorithm but it is needed since for the     |\n"
                     "| moment no other timestamping mechanisms are         |\n"
-                    "|supported.                                           |\n" 
+                    "|supported.                                           |\n"
                     "=======================================================\n";
             return -1;
         }

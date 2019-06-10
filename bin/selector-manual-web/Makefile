@@ -1,7 +1,6 @@
 TARGET = server
 
 all: $(TARGET)
-	$(MAKE) -C selector-external-web
 
 %: %.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $< $(INCS) $(LDFLAGS) $(LDLIBS) -L$(realpath ../../src/external/riff/src/external/nanomsg/build/) -lnanomsg -lanl -pthread

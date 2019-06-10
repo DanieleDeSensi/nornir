@@ -53,7 +53,12 @@
  #include <stdio.h>
  #include <unistd.h>
 
+#if defined(__x86_64__)
 #define gettid() syscall(__NR_gettid)
+#else
+#include <sys/syscall.h>
+#define gettid() syscall(SYS_gettid)
+#endif
 
 #if defined(MAMMUT)
 #include <mammut/mammut.hpp>

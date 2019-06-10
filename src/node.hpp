@@ -44,6 +44,7 @@ POP_WARNING
 #undef DEBUGB
 
 #define TERMINATE_APPLICATION do{ terminate(); return (void*) ff::FF_EOS;} while(0)
+#define TERMINATE_APPLICATION_TYPED(X) do{ nornir::AdaptiveNode::terminate(); return (X*) ff::FF_EOS;} while(0)
 
 namespace nornir{
 
@@ -61,7 +62,7 @@ typedef enum{
 typedef enum{
     // Reset the current sample.
     MGMT_REQ_RESET_SAMPLE = 0,
-  
+
     // Get the current sample and reset it.
     MGMT_REQ_GET_AND_RESET_SAMPLE,
 
@@ -96,10 +97,18 @@ typedef struct{
 class AdaptiveNode: public ff::ff_node{
 private:
     friend class ManagerFastFlow;
+    friend class ManagerFastFlowPipeline;
     friend class KnobVirtualCoresFarm;
     friend class KnobMappingFarm;
     friend class TriggerQBlocking;
     template <typename S, typename I, typename O, typename G> friend class FarmAcceleratorBase;
+    friend void askForSample(std::vector<AdaptiveNode*> nodes);
+    friend MonitoredSample getSampleResponse(std::vector<AdaptiveNode*> nodes, double currentLatency);
+    friend void initNodesPreRun(Parameters p, AdaptiveNode* emitter, std::vector<AdaptiveNode*> workers,
+                                AdaptiveNode* collector, volatile bool* terminated, ff::ff_thread* lb,
+                                ff::ff_thread* gt);
+    friend void initNodesPostRun(AdaptiveNode* emitter, std::vector<AdaptiveNode*> workers,
+                                 AdaptiveNode* collector);
 
     volatile bool _started;
     volatile bool* _terminated;
@@ -267,6 +276,16 @@ public:
      */
     virtual void notifyRethreading(size_t oldNumWorkers,
                                    size_t newNumWorkers);
+
+    /**
+     * Gets the last management request received by the node.
+     * NOTE: Only to be used for debug purposes.
+     **/
+    ManagementRequest* checkManagementRequest(){
+        ManagementRequest* mr = static_cast<ManagementRequest*>(_managementQ.top());
+        _managementQ.inc();
+        return mr;
+    }
 
 protected:
     /**

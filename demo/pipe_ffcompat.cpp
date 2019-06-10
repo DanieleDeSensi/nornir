@@ -1,5 +1,5 @@
 /*
- * farm_ffcompat.hpp
+ * pipe_ffcompat.hpp
  *
  * Created on: 27/02/2016
  *
@@ -26,21 +26,20 @@
  */
 
 /**
- * This is a demo on how to enable an existing FastFlow farm to operate
+ * This is a demo on how to enable an existing FastFlow pipeline to operate
  * under the nornir management.
+ * Currently we only support pipelines where stages are either sequential nodes
  *
  * The steps to be followed are:
- *  1. Emitter, Workers and Collector of the farm must extend
+ *  1. Emitter, Workers and Collector of the farms must extend
  *     nornir::AdaptiveNode instead of ff::ff_node.
  *     ATTENTION: svc_init and svc_end are now called after each rethreading.
  *     Accordingly, if those operations need to be performed only once, you
  *     should ensure that.
- *  2. In the emitter, when there are no more tasks to be produced, please
- *     just call the macro TERMINATE_APPLICATION instead of returing NULL.
- *  3. If the application wants to be aware of the changes in the number
+ *  2. If the application wants to be aware of the changes in the number
  *     of workers, the nodes can implement the notifyRethreading virtual
  *     method.
- *  4. Pass the existing farm to the manager.
+ *  3. Pass the existing pipeline to the manager.
  */
 
 #include <vector>
@@ -50,38 +49,29 @@
 
 using namespace ff;
 
-#define MICROSECSSLEEP 1000000
+int dummyTask;
 
-/**
- * The emitter of the farm.
- */
-class Emitter: public nornir::AdaptiveNode {
+class Generator: public nornir::AdaptiveNode {
 public:
-    explicit Emitter(int max_task):ntask(max_task){;}
-
     void * svc(void *) {
-        usleep(MICROSECSSLEEP);
-        int * task = new int(ntask);
-        --ntask;
-        if (ntask<0){
-            std::cout << "Emitter finished" << std::endl;
-            //cppcheck-suppress memleak
-            TERMINATE_APPLICATION;
-        }
-        //cppcheck-suppress memleak
-        return task;
+        return (void*) &dummyTask;
     }
-private:
-    int ntask;
 };
 
 /**
  * Farm worker.
  */
 class Worker: public nornir::AdaptiveNode{
+private:
+    unsigned long _sleepTimeMs;
+    uint _farmId;
+    uint _workerId;
 public:
+    Worker(unsigned long sleepTimeMs, uint farmId, uint workerId):
+        _sleepTimeMs(sleepTimeMs), _farmId(farmId), _workerId(workerId){;}
+
     int svc_init(){
-        std::cout << "Worker svc_init called" << std::endl;
+        //std::cout << "Worker svc_init called" << std::endl;
         return 0;
     }
 
@@ -94,73 +84,63 @@ public:
          */
     }
     void * svc(void * task) {
-        int * t = (int *)task;
-        usleep(MICROSECSSLEEP);
-        std::cout << "Worker " << ff_node::get_my_id()
-                  << " received task " << *t << "\n";
+        //std::cout << "Executed <" << _farmId << ", " << _workerId << ">" << std::endl;
+        usleep(_sleepTimeMs * MAMMUT_MICROSECS_IN_MILLISEC);
         return task;
     }
 };
 
-/**
- * The collector of the farm.
- */
-class Collector: public nornir::AdaptiveNode {
+class DummyNode: public nornir::AdaptiveNode {
 public:
-    void * svc(void * task) {
-        int * t = (int *)task;
-        if (*t == -1) return NULL;
+    void* svc(void* task){
         return task;
     }
 };
 
 int main(int argc, char * argv[]) {
-    int nworkers = 1;
-    int streamlen = 10;
+    int nworkers = 4;
+    ff::ff_farm<> farm1, farm2, farm3; // farm objects
+    ff::ff_pipeline pipe;
 
-    if (argc>1) {
-        if (argc!=3) {
-            std::cerr << "use: "
-                      << argv[0]
-                      << " nworkers streamlen\n";
-            return -1;
-        }
-        nworkers=atoi(argv[1]);
-        streamlen=atoi(argv[2]);
-    }
+    std::vector<ff_node *> w1;
+    for(int i = 0; i < nworkers; i++) 
+        w1.push_back(new Worker(100, 1, i));
+    farm1.add_workers(w1); // add all workers to the farm
+    farm1.add_emitter(new DummyNode());
+    farm1.add_collector(new DummyNode());
 
-    if (!nworkers || !streamlen) {
-        std::cerr << "Wrong parameters values\n";
-        return -1;
-    }
+    std::vector<ff_node *> w2;
+    for(int i = 0; i < nworkers; i++) 
+        w2.push_back(new Worker(200, 2, i));
+    farm2.add_workers(w2); // add all workers to the farm
+    farm2.add_emitter(new DummyNode());
+    farm2.add_collector(new DummyNode());
 
-    ff::ff_farm<> farm; // farm object
+    std::vector<ff_node *> w3;
+    for(int i = 0; i < nworkers; i++) 
+        w3.push_back(new Worker(400, 3, i));
+    farm3.add_workers(w3); // add all workers to the farm
+    farm3.add_emitter(new DummyNode());
+    farm3.add_collector(new DummyNode());
 
-    Emitter E(streamlen);
-    farm.add_emitter(&E);
-
-    std::vector<ff_node *> w;
-    for(int i=0;i<nworkers;++i) w.push_back(new Worker);
-    farm.add_workers(w); // add all workers to the farm
-
-    Collector C;
-    farm.add_collector(&C);
+    pipe.add_stage(new Generator());
+    pipe.add_stage(&farm1);
+    pipe.add_stage(&farm2);
+    pipe.add_stage(&farm3);
 
     /***************************************************************/
     /*  START - New code needed with respect to the existing code. */
     /***************************************************************/
     nornir::Parameters ap("parameters.xml"); // Load parameters.
-    nornir::ManagerFastFlow amf(&farm, ap); // Create nornir manager.
+    std::vector<bool> farmFlags(4, true);
+    farmFlags[0] = false;
+    nornir::ManagerFastFlowPipeline amf(&pipe, farmFlags, ap); // Create nornir manager.
     amf.start(); // Start farm.
     amf.join(); // Wait for farm end.
     /***************************************************************/
     /*  END - New code needed with respect to the existing code. */
     /***************************************************************/
-
-    std::cout << "Farm end" << std::endl;
-    std::cerr << "DONE, time= " << farm.ffTime() << " (ms)\n";
-    farm.ffStats(std::cerr);
-
+    pipe.ffStats(std::cerr);
     return 0;
 }
 

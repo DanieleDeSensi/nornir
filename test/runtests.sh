@@ -1,9 +1,10 @@
 #!/bin/bash
 
+tar -xf validationdata.tar.gz
 for t in *.cpp; do
 # Unzip mammut simulation data
 	cd ../src/external/mammut/test/archs && tar -xf repara.tar.gz
-	cd ../../../../../test
+	cd ../../../../../test 
 	./$(basename "$t" .cpp)
     exitvalue=$?
 	cd ../src/external/mammut/test/archs && rm -rf repara
@@ -12,5 +13,6 @@ for t in *.cpp; do
         break
     fi
 done
+rm -rf validationdata
 
 exit $exitvalue

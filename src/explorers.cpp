@@ -140,7 +140,7 @@ namespace nornir{
                     /**
                      * If we do not need to automatically find the value for this knob,
                      * then it has only 0 or 1 possible value. Accordingly, we can set
-                     * it to any value. 
+                     * it to any value.
                      */
                     r[(KnobType)i] = 0;
                 }

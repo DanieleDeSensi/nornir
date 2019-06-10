@@ -48,6 +48,7 @@ private:
     double _totalCalibrationTime;
     bool _calibrating;
     bool _ignoreViolations;
+    uint _numPhyCores;  
 protected:
     const Parameters& _p;
     const Configuration& _configuration;
@@ -63,11 +64,11 @@ protected:
     u_int64_t _totalTasks;
 
     /**
-     * Checks if the bandwidth respects the required contract.
+     * Checks if the throughput respects the required contract.
      * @param value The value to be checked.
      * @param conservative If true applies the conservativeValue.
      */
-    bool isFeasibleBandwidth(double value, bool conservative) const;
+    bool isFeasibleThroughput(double value, bool conservative) const;
 
     /**
      * Checks if the latency respects the required contract.
@@ -119,6 +120,8 @@ protected:
      * Starts the recording of calibration stats.
      */
     void startCalibration();
+
+    bool areKnobsValid(const KnobsValues& kv);  
 public:
     Selector(const Parameters& p,
              const Configuration& configuration,
@@ -214,7 +217,7 @@ inline std::string getSelectorManualCliControlFile(){
 }
 
 /**
- * Configuration is manually chosen by an 
+ * Configuration is manually chosen by an
  * external entity (selector-manual) command line interface.
  */
 class SelectorManualCli: public Selector{
@@ -271,7 +274,7 @@ class ManagerMulti;
 class SelectorPredictive: public Selector{
     friend class ManagerMulti;
 private:
-    std::unique_ptr<Predictor> _bandwidthPredictor;
+    std::unique_ptr<Predictor> _throughputPredictor;
     std::unique_ptr<Predictor> _powerPredictor;
     bool _feasible;
     KnobsValues _maxPerformanceConfiguration;
@@ -285,31 +288,31 @@ private:
      * Checks if the specified value to maximize/minimize
      * is better than the best found
      * up to now. If so, the new best value is stored.
-     * @param bandwidth The bandwidth value.
+     * @param throughput The throughput value.
      * @param latency The latency value.
      * @param utilization The utilization value.
      * @param power The power consumption value.
      * @param best The best found up to now.
      * @return true if it was a better value (best is modified).
      */
-    bool isBestMinMax(double bandwidth, double latency, double utilization,
+    bool isBestMinMax(double throughput, double latency, double utilization,
                       double power, double& best);
 
     /**
      * Checks if the specified value to control
      * is better than the best suboptimal value found
      * up to now. If so, the new best value is stored.
-     * @param bandwidth The bandwidth value.
+     * @param throughput The throughput value.
      * @param latency The latency value.
      * @param utilization The utilization value.
      * @param power The power consumption value.
      * @param best The best found up to now.
      * @return true if it was a better value (best is modified).
      */
-    bool isBestSuboptimal(double bandwidth, double latency, double utilization,
+    bool isBestSuboptimal(double throughput, double latency, double utilization,
                           double power, double& best);
 protected:
-    double _bandwidthPrediction;
+    double _throughputPrediction;
     double _powerPrediction;
 
     /**
@@ -368,7 +371,7 @@ public:
     SelectorPredictive(const Parameters& p,
                        const Configuration& configuration,
                        const Smoother<MonitoredSample>* samples,
-                       std::unique_ptr<Predictor> bandwidthPredictor,
+                       std::unique_ptr<Predictor> throughputPredictor,
                        std::unique_ptr<Predictor> powerPredictor);
 
     virtual ~SelectorPredictive();
@@ -381,25 +384,25 @@ public:
     virtual KnobsValues getNextKnobsValues() = 0;
 
     /**
-     * Given a prediction, returns the real predicted bandwidth, i.e.
+     * Given a prediction, returns the real predicted throughput, i.e.
      * the minimum between the prediction and the input bandwidth.
-     * @param prediction The predicted bandwidth.
-     * @return The real predicted bandwidth, i.e.
+     * @param prediction The predicted throughput.
+     * @return The real predicted throughput, i.e.
      * the minimum between the prediction and the input bandwidth.
      */
-    double getRealBandwidth(double predicted) const;
+    double getRealThroughput(double predicted) const;
 
     /**
-     * Return the primary prediction for a given configuration.
+     * Return the throughput prediction for a given configuration.
      * @param values The knobs values.
-     * @return The primary prediction for a given configuration.
+     * @return The throughput prediction for a given configuration.
      */
-    double getBandwidthPrediction(const KnobsValues& values);
+    double getThroughputPrediction(const KnobsValues& values);
 
     /**
-     * Return the secondary prediction for a given configuration.
+     * Return the power consumption prediction for a given configuration.
      * @param values The knobs values.
-     * @return The secondary prediction for a given configuration.
+     * @return The power consumption prediction for a given configuration.
      */
     double getPowerPrediction(const KnobsValues& values);
 
@@ -415,7 +418,7 @@ public:
      */
     const std::map<KnobsValues, double>& getSecondaryPredictions() const;
 
-    Predictor* getPrimaryPredictor() const{return _bandwidthPredictor.get();}
+    Predictor* getPrimaryPredictor() const{return _throughputPredictor.get();}
 
     Predictor* getSecondaryPredictor() const{return _powerPredictor.get();}
 };
@@ -431,6 +434,19 @@ public:
     SelectorAnalytical(const Parameters& p,
                    const Configuration& configuration,
                    const Smoother<MonitoredSample>* samples);
+
+    KnobsValues getNextKnobsValues();
+    virtual void updateBandwidthIn();
+};
+
+/**
+ * Selector described in PPAM2019 paper.
+ */
+class SelectorAnalyticalFull: public SelectorPredictive{
+public:
+    SelectorAnalyticalFull(const Parameters& p,
+                       const Configuration& configuration,
+                       const Smoother<MonitoredSample>* samples);
 
     KnobsValues getNextKnobsValues();
     virtual void updateBandwidthIn();
@@ -453,11 +469,13 @@ private:
     bool _updatingInterference;
     std::vector<KnobsValues> _interferenceUpdatePoints;
 
+    KnobsValues getNextMeaningfulKnobsValues(Explorer* explorer);
+  
     std::unique_ptr<Predictor> getPredictor(PredictorType type,
                                             const Parameters& p,
                                             const Configuration& configuration,
                                             const Smoother<MonitoredSample>* samples) const;
-
+    
     /**
      * Starts producing data in order to update the models by
      * considering that another application is interfering with
@@ -504,7 +522,7 @@ public:
     SelectorFixedExploration(const Parameters& p,
                    const Configuration& configuration,
                    const Smoother<MonitoredSample>* samples,
-                   std::unique_ptr<Predictor> bandwidthPredictor,
+                   std::unique_ptr<Predictor> throughputPredictor,
                    std::unique_ptr<Predictor> powerPredictor,
                    size_t numSamples);
 

@@ -59,31 +59,9 @@ using namespace std;
 using namespace mammut;
 using namespace mammut::utils;
 
-std::pair<nn::socket*, uint> Instrumenter::getChannel(const std::string& parametersFile) const{
+std::pair<nn::socket*, uint> Instrumenter::connectPidChannel(const std::string& parametersFile, uint pid) const{
     nn::socket* channel = new nn::socket(AF_SP, NN_PAIR);
     int chid;
-
-    /** Send pid, then switch to the pid channel. */
-    nn::socket mainChannel(AF_SP, NN_PAIR);
-    int mainChid;
-    mainChid = mainChannel.connect(getInstrumentationConnectionChannel().c_str());
-    if(mainChid < 0){
-        delete channel;
-        throw std::runtime_error("Impossible to connect to Nornir.");
-    }
-    DEBUG("Connected to main channel.");
-    pid_t pid = getpid();
-    int ret = mainChannel.send(&pid, sizeof(pid), 0);
-    assert(ret == sizeof(pid));
-    DEBUG("PID sent.");
-    // Wait ack. This is needed because we have to be sure that the pid channel
-    // has been created before trying to connect.
-    char ack;
-    ret = mainChannel.recv(&ack, sizeof(ack), 0);
-    assert(ret == sizeof(ack));
-    DEBUG("Ack received.");
-    mainChannel.shutdown(mainChid);
-    DEBUG("Main channel closed.");
 
     /** Send content length. **/
     chid = channel->connect(getInstrumentationPidChannel(pid).c_str());
@@ -95,7 +73,7 @@ std::pair<nn::socket*, uint> Instrumenter::getChannel(const std::string& paramet
         length += lines.at(i).length();
     }
     length += 1;
-    ret = channel->send(&length, sizeof(length), 0);
+    int ret = channel->send(&length, sizeof(length), 0);
     DEBUG("Parameters sent.");
     assert(ret == sizeof(length));
 
@@ -123,6 +101,31 @@ std::pair<nn::socket*, uint> Instrumenter::getChannel(const std::string& paramet
     return std::pair<nn::socket*, uint>(channel, chid);
 }
 
+std::pair<nn::socket*, uint> Instrumenter::getChannel(const std::string& parametersFile) const{
+    /** Send pid, then switch to the pid channel. */
+    nn::socket mainChannel(AF_SP, NN_PAIR);
+    int mainChid;
+    mainChid = mainChannel.connect(getInstrumentationConnectionChannel().c_str());
+    if(mainChid < 0){
+        throw std::runtime_error("Impossible to connect to Nornir.");
+    }
+    DEBUG("Connected to main channel.");
+    pid_t pid = getpid();
+    int ret = mainChannel.send(&pid, sizeof(pid), 0);
+    assert(ret == sizeof(pid));
+    DEBUG("PID sent.");
+    // Wait ack. This is needed because we have to be sure that the pid channel
+    // has been created before trying to connect.
+    char ack;
+    ret = mainChannel.recv(&ack, sizeof(ack), 0);
+    assert(ret == sizeof(ack));
+    DEBUG("Ack received.");
+    mainChannel.shutdown(mainChid);
+    DEBUG("Main channel closed.");
+
+    return connectPidChannel(parametersFile, pid);
+}
+
 Instrumenter::Instrumenter(const std::string& parametersFile,
                            size_t numThreads,
                            riff::Aggregator *aggregator):
@@ -132,7 +135,7 @@ Instrumenter::Instrumenter(const std::string& parametersFile,
 
 }
 
-extern "C"{    
+extern "C"{
     NornirInstrumenter* nornir_instrumenter_create(const char* parametersFile){
         return reinterpret_cast<NornirInstrumenter*>(new nornir::Instrumenter(parametersFile));
     }
@@ -171,5 +174,17 @@ extern "C"{
 
     unsigned long long nornir_instrumenter_get_total_tasks(NornirInstrumenter* instrumenter){
         return reinterpret_cast<nornir::Instrumenter*>(instrumenter)->getTotalTasks();
+    }
+
+    void nornir_instrumenter_set_total_threads(NornirInstrumenter* instrumenter, unsigned int totalThreads){
+        return reinterpret_cast<nornir::Instrumenter*>(instrumenter)->setTotalThreads(totalThreads);
+    }
+
+    void nornir_instrumenter_set_phase_id(NornirInstrumenter* instrumenter, unsigned int phaseId){
+        return reinterpret_cast<nornir::Instrumenter*>(instrumenter)->setPhaseId(phaseId);
+    }
+
+    void nornir_instrumenter_mark_inconsistent_samples(NornirInstrumenter* instrumenter){
+        return reinterpret_cast<nornir::Instrumenter*>(instrumenter)->markInconsistentSamples();
     }
 }

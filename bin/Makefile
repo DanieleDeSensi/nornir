@@ -1,9 +1,9 @@
-TARGET               = manager-single manager-external manager-blackbox selector-manual
+TARGET               = manager-single manager-external manager-blackbox selector-manual manager-single-bb
 
 .PHONY: all clean cleanall
 
 all: $(TARGET)
-	$(MAKE) -C selector-external-web
+	$(MAKE) -C selector-manual-web
 
 %: %.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $< $(INCS) $(LDFLAGS) $(LDLIBS) 

@@ -75,6 +75,7 @@ public:
 class Instrumenter: public InstrumenterHelper{
 private:
     std::pair<nn::socket*, uint> getChannel(const std::string& parametersFile) const;
+    std::pair<nn::socket*, uint> connectPidChannel(const std::string& parametersFile, uint pid) const;
 public:
     /**
      * Creates a client for interaction with a local server. The suggestion

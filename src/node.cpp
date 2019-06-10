@@ -233,7 +233,7 @@ void AdaptiveNode::storeSample(){
     }else{
         _sampleResponse.latency = 0.0;
     }
-    _sampleResponse.bandwidth = (double) _numTasks / ticksToSeconds(totalTicks, _ticksPerNs);
+    _sampleResponse.throughput = (double) _numTasks / ticksToSeconds(totalTicks, _ticksPerNs);
 
     reset();
 
@@ -243,6 +243,7 @@ void AdaptiveNode::storeSample(){
 void AdaptiveNode::callbackIn(void *p) CX11_KEYWORD(final){
     _started = true;
     ManagementRequest* request;
+    DEBUG("callbackIn called.");
 
     while(!_managementQ.empty()){
         request = (ManagementRequest*) _managementQ.top();

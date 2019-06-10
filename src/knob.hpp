@@ -177,6 +177,21 @@ private:
     const volatile bool* _terminated;
 };
 
+class KnobVirtualCoresPipe: public KnobVirtualCores{
+    friend class ManagerFastFlow;
+    template <typename I, typename O> friend class FarmBase;
+public:
+    KnobVirtualCoresPipe(Parameters p,
+                         std::vector<KnobVirtualCoresFarm*> farms,
+                         std::vector<std::vector<double> > allowedValues);
+
+    void changeValue(double v);
+    std::vector<AdaptiveNode*> getActiveWorkers() const;
+private:
+    std::vector<KnobVirtualCoresFarm*> _farms;
+    std::vector<std::vector<double>> _allowedValues;
+};
+
 class KnobHyperThreading: public Knob{
 public:
     explicit KnobHyperThreading(Parameters p);
@@ -268,9 +283,26 @@ private:
     const KnobMapping& _knobMapping;
     mammut::cpufreq::CpuFreq* _frequencyHandler;
     mammut::topology::Topology* _topologyHandler;
-    std::vector<mammut::cpufreq::RollbackPoint> _rollbackPoints; // One per domain
 };
 
+class KnobClkMod: public Knob{
+private:
+    const KnobMapping& _knobMapping;
+public:
+    explicit KnobClkMod(Parameters p, const KnobMapping& knobMapping);
+    void changeValue(double v);
+};
+
+class KnobClkModEmulated: public Knob{
+private:
+    Parameters _p;
+    mammut::task::ProcessHandler* _processHandler;
+public:
+    explicit KnobClkModEmulated(Parameters p);
+    void setPid(pid_t pid);
+    void setProcessHandler(mammut::task::ProcessHandler* processHandler);
+    void changeValue(double v);
+};
 
 /**
  * Knobs values can be:

@@ -22,7 +22,7 @@ int main(int argc, char** argv){
     for(size_t i = 0; i < 10; i++){
         v.resize(endloop - startloop);
         std::cout << "outer iteration " << i << std::endl;
-        pf.parallel_for(startloop, endloop, step, chunksize, 
+        pf.parallel_for(startloop, endloop, step, chunksize,
         [&v](long long int idx, long long int id){
            v[idx] = idx;
         });

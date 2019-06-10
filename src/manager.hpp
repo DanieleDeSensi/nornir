@@ -41,6 +41,51 @@
 #include "node.hpp"
 #include "utils.hpp"
 
+//// Nornir's versions of the nodes
+#include "external/fastflow/ff/config.hpp"
+namespace nornir{
+template<typename IN_t, typename OUT_t = IN_t>
+struct nrnr_node_t: public AdaptiveNode {
+    typedef IN_t  in_type;
+    typedef OUT_t out_type;
+
+    nrnr_node_t():
+        GO_ON((OUT_t*)ff::FF_GO_ON),
+        EOS((OUT_t*)ff::FF_EOS),
+        EOSW((OUT_t*)ff::FF_EOSW),
+        GO_OUT((OUT_t*)ff::FF_GO_OUT),
+        EOS_NOFREEZE((OUT_t*) ff::FF_EOS_NOFREEZE),
+        BLK((OUT_t*)ff::FF_BLK), NBLK((OUT_t*)ff::FF_NBLK) {
+    }
+    OUT_t * const GO_ON,  *const EOS, *const EOSW, *const GO_OUT, *const EOS_NOFREEZE, *const BLK, *const NBLK;
+    virtual ~nrnr_node_t()  {}
+    virtual OUT_t* svc(IN_t*)=0;
+    inline  void *svc(void *task) {
+        void* r = svc(reinterpret_cast<IN_t*>(task));
+        if(!r){
+            TERMINATE_APPLICATION;
+        }else{
+            return r;
+        }
+    };
+};
+
+template<typename TIN, typename TOUT, typename FUNC>
+struct nrnr_node_F: public nrnr_node_t<TIN, TOUT> {
+   nrnr_node_F(FUNC f):F(f) {}
+   TOUT* svc(TIN* task) {
+       TOUT* r = F(task, this);
+       if(!r){
+           TERMINATE_APPLICATION_TYPED(TOUT);
+       }else{
+           return r;
+       }
+   }
+   FUNC F;
+};
+}
+
+#include "external/fastflow/ff/pipeline.hpp"
 #include "external/mammut/mammut/module.hpp"
 #include "external/mammut/mammut/utils.hpp"
 #include "external/mammut/mammut/mammut.hpp"
@@ -54,15 +99,6 @@ namespace nornir{
 
 class Parameters;
 class ManagerMulti;
-
-//TODO REMOVE USING
-using namespace std;
-using namespace ff;
-using namespace mammut::cpufreq;
-using namespace mammut::energy;
-using namespace mammut::task;
-using namespace mammut::topology;
-using namespace mammut::utils;
 
 
 // How to react to the calibration of other applications
@@ -82,7 +118,7 @@ typedef enum{
  *
  * This class manages the adaptivity in parallel applications.
  */
-class Manager: public Thread{
+class Manager: public mammut::utils::Thread{
     friend class ManagerMulti;
 public:
     explicit Manager(Parameters nornirParameters);
@@ -94,7 +130,7 @@ public:
      */
     void run();
 
-    /** 
+    /**
      * Forces the manager to terminate.
      **/
     void terminate();
@@ -116,13 +152,16 @@ protected:
     Parameters _p;
 
     // The energy counter.
-    Counter* _counter;
+    mammut::energy::Counter* _counter;
 
     // The task module.
-    TasksManager* _task;
+    mammut::task::TasksManager* _task;
 
     // The topology module.
-    Topology* _topology;
+    mammut::topology::Topology* _topology;
+
+    // The cpufreq module.
+    mammut::cpufreq::CpuFreq* _cpufreq;
 
     // Monitored samples;
     Smoother<MonitoredSample>* _samples;
@@ -162,7 +201,12 @@ protected:
     // Samples to be used for simulation.
     std::list<MonitoredSample> _simulationSamples;
 
-    ofstream samplesFile;
+    // When debugging, we print all the monitored samples on this stream
+    // ATTENTION: Do NOT protect with DEBUG ifdefs.
+    std::ofstream samplesFile;
+
+    mammut::topology::RollbackPoint _topologyRollbackPoint;
+    mammut::cpufreq::RollbackPoint _cpufreqRollbackPoint;
 
     /**
      * Wait for the application to start and
@@ -204,15 +248,15 @@ protected:
     virtual void terminationManagement();
 
     /**
-     * Updates the required bandwidth.
+     * Updates the required throughput.
      */
-    void updateRequiredBandwidth();
+    void updateRequiredThroughput();
 
     /**
      * Set a specified domain to the highest frequency.
      * @param domain The domain.
      */
-    void setDomainToHighestFrequency(const Domain* domain);
+    void setDomainToHighestFrequency(const mammut::cpufreq::Domain* domain);
 
     /**
      * Returns true if the manager doesn't have still to check for a new
@@ -260,7 +304,7 @@ protected:
      * resets the counter.
      * @return The joules consumed since the last reset.
      */
-    Joules getAndResetJoules();
+    mammut::energy::Joules getAndResetJoules();
 
     /**
      * Logs the last observation.
@@ -304,7 +348,7 @@ private:
      *
      * @return The vector of physical cores used by the manager.
      */
-    std::vector<PhysicalCoreId> getUsedCores();
+    std::vector<mammut::topology::PhysicalCoreId> getUsedCores();
 
     void allowCores(std::vector<mammut::topology::VirtualCoreId> ids);
 };
@@ -394,22 +438,19 @@ private:
     void shrinkPause(){;}
     void stretchPause(){;}
 public:
-    explicit ManagerTest(Parameters nornirParameters,
-                         uint numWorkers, uint numServiceNodes):Manager(nornirParameters){
+    explicit ManagerTest(Parameters nornirParameters, uint numthreads):Manager(nornirParameters){
         //TODO: Avoid this initialization phase which is common to all the managers.
         Manager::_configuration = new ConfigurationExternal(_p);
-        _configuration->_numServiceNodes = numServiceNodes;
-        dynamic_cast<KnobVirtualCores*>(_configuration->getKnob(KNOB_VIRTUAL_CORES))->changeMax(numWorkers);
-        lockKnobs();
-        _configuration->createAllRealCombinations();
-        _selector = createSelector();
+        dynamic_cast<KnobVirtualCores*>(_configuration->getKnob(KNOB_VIRTUAL_CORES))->changeMax(numthreads);
         // For instrumented application we do not care if synchronous of not
         // (we count iterations).
         _p.synchronousWorkers = false;
     }
     ~ManagerTest(){;}
 protected:
-    void waitForStart(){;}
+    void waitForStart(){
+        dynamic_cast<KnobMappingExternal*>(_configuration->getKnob(KNOB_MAPPING))->setPid(getpid());
+    }
     MonitoredSample getSample(){return MonitoredSample();}
     ulong getExecutionTime(){return 0;}
 };
@@ -431,7 +472,7 @@ public:
      * @param nornirParameters The parameters to be used for
      * adaptivity decisions.
      */
-    ManagerFastFlow(ff_farm<>* farm, Parameters nornirParameters);
+    ManagerFastFlow(ff::ff_farm<>* farm, Parameters nornirParameters);
 
     /**
      * Destroyes this adaptivity manager.
@@ -439,7 +480,7 @@ public:
     ~ManagerFastFlow();
 private:
     // The managed farm.
-    ff_farm<>* _farm;
+    ff::ff_farm<>* _farm;
 
     // The emitter (if present).
     AdaptiveNode* _emitter;
@@ -451,13 +492,50 @@ private:
     std::vector<AdaptiveNode*> _activeWorkers;
 
     void waitForStart();
-    void askForSample();
-    MonitoredSample getSampleResponse();
     MonitoredSample getSample();
-    void initNodesPreRun();
-    void initNodesPostRun();
     void postConfigurationManagement();
     void terminationManagement();
+    ulong getExecutionTime();
+    void shrinkPause();
+    void stretchPause();
+};
+
+/*!
+ * \class ManagerFastFlowPipeline
+ * \brief This class manages the adaptivity in applications written
+ * with pipeline pattern in the FastFlow programming framework.
+ *
+ * This class manages the adaptivity in applications written
+ * with pipeline pattern in the FastFlow programming framework.
+ */
+class ManagerFastFlowPipeline: public Manager{
+    template <typename I, typename O> friend class FarmBase;
+public:
+    /**
+     * Creates a pipeline adaptivity manager.
+     * @param pipe The pipeline to be managed.
+     * @param nornirParameters The parameters to be used for
+     * adaptivity decisions.
+     */
+    ManagerFastFlowPipeline(ff::ff_pipeline* pipe, std::vector<bool> farmsFlags, Parameters nornirParameters);
+
+    /**
+     * Destroyes this adaptivity manager.
+     */
+    ~ManagerFastFlowPipeline();
+private:
+    // The managed farm.
+    ff::ff_pipeline* _pipe;
+    std::vector<bool> _farmsFlags;
+    std::vector<KnobVirtualCoresFarm*> _farmsKnobs;
+    std::vector<AdaptiveNode*> _activeWorkers;
+    std::vector<std::vector<AdaptiveNode*>> _allWorkers;
+    std::vector<std::vector<double>> _allowedValues;
+
+    
+    void waitForStart();
+    MonitoredSample getSample();
+    void postConfigurationManagement();
     ulong getExecutionTime();
     void shrinkPause();
     void stretchPause();

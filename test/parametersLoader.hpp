@@ -3,7 +3,7 @@
  **/
 #include <limits.h>
 #include <stdlib.h>
-#include <stdio.h> 
+#include <stdio.h>
 #include <linux/limits.h>
 #include <time.h>
 #include "../src/nornir.hpp"
@@ -18,9 +18,10 @@ inline nornir::Parameters getParameters(const std::string& archName,
     //p.isolateManager //For knobMapping
     //p.knobHyperthreadingEnabled // For knobCores
     //p.disallowedNumCores // For knobCores
-    char resolved_path[PATH_MAX]; 
-    if(realpath(("./" + archName + "/config/").c_str(), resolved_path) == NULL){
-        throw std::runtime_error("realpath not working.");
+    char resolved_path[PATH_MAX];
+    std::string relativePath = "./archconfig/" + archName + "/";
+    if(realpath(relativePath.c_str(), resolved_path) == NULL){
+        throw std::runtime_error("realpath not working for path " + relativePath);
     }
     // We set this env variable to load the nornir config for this architecture
     setenv("XDG_CONFIG_DIRS", resolved_path, 1);

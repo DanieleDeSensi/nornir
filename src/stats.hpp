@@ -155,10 +155,10 @@ class Logger{
 private:
     unsigned int _timeOffset;
 protected:
-    unsigned int _startMonitoring;
-    
-    unsigned int getRelativeTimestamp();
-    unsigned int getAbsoluteTimestamp();
+    double _startMonitoring;
+
+    double getRelativeTimestamp();
+    double getAbsoluteTimestamp();
 public:
     explicit Logger(unsigned int timeOffset = 0);
     virtual ~Logger(){;}
@@ -181,7 +181,7 @@ protected:
     std::ostream* _summaryStream;
     unsigned int _timeOffset;
     unsigned long long _steadySamples;
-    double _steadyBandwidth;
+    double _steadyThroughput;
     double _steadyWatts;
 public:
 

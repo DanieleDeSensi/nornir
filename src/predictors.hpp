@@ -12,7 +12,7 @@
  *  modify it under the terms of the Lesser GNU General Public
  *  License as published by the Free Software Foundation, either
  *  version 3 of the License, or (at your option) any later version.
-
+ 
  *  nornir is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -38,6 +38,12 @@
 #include "external/mammut/mammut/mammut.hpp"
 
 #include <gsl/gsl_multifit.h>
+
+// Needed because someone defined bitset as a macro and collides with boost bitset definition (used by mlpack)
+#ifdef bitset
+#undef bitset
+#endif 
+
 #include <mlpack/core.hpp>
 #include <mlpack/methods/linear_regression/linear_regression.hpp>
 #include "external/leo/leo.h" // Must be included after mlpack
@@ -96,13 +102,13 @@ public:
 
 /**
  * A row of the data matrix to be used in linear
- * regression for prediction of bandwidth.
+ * regression for prediction of throughput.
  */
 class RegressionDataServiceTime: public RegressionData{
 private:
-    mammut::cpufreq::Frequency _minFrequency;
-    double _invScalFactorFreq;
-    double _invScalFactorFreqAndCores;
+    mammut::cpufreq::Frequency _minSpeed;
+    double _invScalFactorSpeed;
+    double _invScalFactorSpeedAndCores;
 
     uint _numPredictors;
 public:
@@ -159,7 +165,7 @@ public:
  * Type of predictor.
  */
 typedef enum PredictorType{
-    PREDICTION_BANDWIDTH = 0,
+    PREDICTION_THROUGHPUT = 0,
     PREDICTION_POWER
 }PredictorType;
 
@@ -174,7 +180,7 @@ protected:
     const Smoother<MonitoredSample>* _samples;
     double _modelError;
 
-    double getMaximumBandwidth() const;
+    double getMaximumThroughput() const;
     double getCurrentPower() const;
 public:
     Predictor(PredictorType type,
@@ -359,20 +365,20 @@ private:
     double _chisq;
     std::vector<double> _coefficients;
     bool _preparationNeeded;
-    double _maxFreqBw;
-    double _minFreqBw;
-    double _minFreqCoresBw;
-    double _minFrequency;
-    double _maxFrequency;
+    double _maxSpeedThr;
+    double _minSpeedThr;
+    double _minSpeedCoresThr;
+    double _minSpeed;
+    double _maxSpeed;
 
     // The following variables are used to update
     // the model after an external interference (typical
     // another application running on the system).
-    double _minFreqCoresBwNew;
+    double _minSpeedCoresThrNew;
     double _n1, _n2;
-    double _minFreqN1Bw, _minFreqN2Bw;
+    double _minSpeedN1Thr, _minSpeedN2Thr;
 
-    double getMinFreqCoresBw() const;
+    double getMinSpeedCoresThr() const;
     double geta() const;
     double getb() const;
     void seta(double a);
@@ -431,6 +437,7 @@ private:
     uint _cpus;
     uint _domains;
 
+protected:
     double getScalingFactor(const KnobsValues& values);
     double getPowerPrediction(const KnobsValues& values);
 public:
@@ -443,12 +450,29 @@ public:
 
     void prepareForPredictions();
 
-    double predict(const KnobsValues& values);
+    virtual double predict(const KnobsValues& values);
 
     void refine();
 
     void clear();
 };
+
+/*
+ * Represents a simple predictor. It works only for application that
+ * exhibits good scalability and do not use hyperthreading.
+ * Differently from PredictorAnalytical, it can predict the exact value
+ * of power consumption rather than an estimation preserving the relative order.
+ * Accordingly, it can be used for power bounded contracts.
+ */
+class PredictorAnalyticalFull: public PredictorAnalytical{
+public:
+    PredictorAnalyticalFull(PredictorType type,
+                        const Parameters& p,
+                        const Configuration& configuration,
+                        const Smoother<MonitoredSample>* samples);
+    double predict(const KnobsValues& values);
+};
+
 
 /**
  * Applies the algorithm described in:
@@ -509,7 +533,79 @@ public:
     double predict(const KnobsValues& realValues);
 };
 
+/**
+* @brief The PredictoSMT class
+*/
+class PredictorSMT : public Predictor {
+private:
+
+	arma::mat _xs1;
+	arma::mat _xs2;
+	arma::rowvec _ys1;
+	arma::rowvec _ys2;
+	mlpack::regression::LinearRegression* _lr1;
+	mlpack::regression::LinearRegression* _lr2;
+	bool _preparationNeeded;
+	double _minFreq;
+	double _minFreqCoresExtime;
+	uint _cpus;
+	uint _phyCoresPerCpu;
+
+	double getSigma(double numCores, double freq) const;
+	double getKi(double numCores, double freq) const;
+	double getGamma(double numCores, double freq) const;
+	double getHT (double numContexts) const;
+		void addObservation(arma::mat& _xs,
+		    arma::rowvec& _ys,
+		    const arma::vec& x,
+		    const double y);
+
+public:
+	PredictorSMT(PredictorType type,
+		const Parameters& p,
+		const Configuration& configuration,
+		const Smoother<MonitoredSample>* samples);
+
+	~PredictorSMT();
+
+	/**
+	 * Returns true if the predictor is ready to make prediction.
+	 * If false is returned, we need to refine the model with
+	 * more points.
+	 * @return true if the predictor is ready to make prediction,
+	 *         false otherwise.
+	 */
+	bool readyForPredictions();
+
+	/**
+	 * Clears the predictor removing all the collected
+	 * data
+	 */
+	void clear();
+
+	/**
+	 * If possible, refines the model with the information
+	 * obtained on the current configuration.
+	 */
+	void refine();
+
+	/**
+	 * Prepare the predictor to accept a set of prediction requests.
+	 * ATTENTION: If it is already ready to perform predictions, nothing should
+	 *            be done.
+	 */
+	void prepareForPredictions();
+
+	/**
+	 * Predicts the value at specific knobs values.
+	 * @param values The values.
+	 * @return The predicted value at a specific combination of real knobs values.
+	 */
+	double predict(const KnobsValues& realValues);
+};
+
 }
 
 
 #endif /* NORNIR_PREDICTORS_HPP_ */
+

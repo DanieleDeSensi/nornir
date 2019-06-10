@@ -60,7 +60,7 @@ namespace nornir{
 class Parameters;
 
 using namespace std;
-using namespace ff;
+using namespace ::ff;
 using namespace mammut::cpufreq;
 using namespace mammut::energy;
 using namespace mammut::task;
@@ -81,6 +81,7 @@ Manager::Manager(Parameters nornirParameters):
         _counter(NULL),
         _task(NULL),
         _topology(NULL),
+        _cpufreq(NULL),
         _samples(initSamples()),
         _variations(new MovingAverageExponential<double>(0.5)),
         _totalTasks(0),
@@ -109,25 +110,42 @@ Manager::Manager(Parameters nornirParameters):
         }
     }
     DEBUGB(samplesFile.open("samples.csv"));
+
+    _topology = _p.mammut.getInstanceTopology(); 
+    _cpufreq = _p.mammut.getInstanceCpuFreq();
+    if(!_toSimulate){
+        // We cannot create energy and task modules
+        // since they are not simulated by mammut
+        _counter = _p.mammut.getInstanceEnergy()->getCounter(COUNTER_CPUS);
+	if(!_counter){
+	  _counter = _p.mammut.getInstanceEnergy()->getCounter(COUNTER_PLUG);	  
+	}
+        _task = _p.mammut.getInstanceTask();
+    }
+    DEBUG("Mammut handlers created.");
+
+    _topologyRollbackPoint = _topology->getRollbackPoint();
+    if(_p.knobFrequencyEnabled){
+        _cpufreqRollbackPoint = _cpufreq->getRollbackPoint();
+    }
 }
 
 Manager::~Manager(){
     for(auto logger : _p.loggers){
-        delete logger;
+        delete logger; //TODO: NO, I may also delete loggers created by the user.
     }
     _p.loggers.clear();
     DEBUGB(samplesFile.close());
+    _topology->rollback(_topologyRollbackPoint);
+    if(_p.knobFrequencyEnabled){
+        _cpufreq->reinsertTurboFrequencies(); // Otherwise rollback will not work
+        _cpufreq->rollback(_cpufreqRollbackPoint);
+    }
 }
 
 void Manager::run(){
-    _p.mammut.getInstanceCpuFreq()->removeTurboFrequencies();
+    _cpufreq->removeTurboFrequencies();
     DEBUG("Turbo frequencies removed.");
-    if(!_toSimulate){
-        _counter = _p.mammut.getInstanceEnergy()->getCounter();
-        _task = _p.mammut.getInstanceTask();
-        _topology = _p.mammut.getInstanceTopology();
-    }
-    DEBUG("Mammut handlers created.");
 
     if(isPrimaryRequirement(_p.requirements.executionTime)){
         _remainingTasks = _p.requirements.expectedTasksNumber;
@@ -135,6 +153,9 @@ void Manager::run(){
     }
 
     waitForStart();
+    lockKnobs();
+    _configuration->createAllRealCombinations();
+    _selector = createSelector();
     for(auto logger : _p.loggers){
         logger->setStartTimestamp();
     }
@@ -182,7 +203,7 @@ void Manager::run(){
         startSample = getMillisecondsTime();
         if(!_inhibited){
             observe();
-            updateRequiredBandwidth();
+            updateRequiredThroughput();
 
             if(!persist()){
                 DEBUG("Asking selector.");
@@ -310,13 +331,13 @@ void Manager::postConfigurationManagement(){;}
 
 void Manager::terminationManagement(){;}
 
-void Manager::updateRequiredBandwidth() {
+void Manager::updateRequiredThroughput() {
     if(isPrimaryRequirement(_p.requirements.executionTime)){
         double now = getMillisecondsTime();
         if(now / 1000.0 >= _deadline){
-            _p.requirements.bandwidth = numeric_limits<double>::max();
+            _p.requirements.throughput = numeric_limits<double>::max();
         }else{
-            _p.requirements.bandwidth = _remainingTasks / ((_deadline * 1000.0 - now) / 1000.0);
+            _p.requirements.throughput = _remainingTasks / ((_deadline * 1000.0 - now) / 1000.0);
         }
     }
 }
@@ -340,7 +361,7 @@ bool Manager::persist() const{
         case STRATEGY_PERSISTENCE_VARIATION:{
             const MonitoredSample& variation = _samples->coefficientVariation();
             r = _samples->size() < 1 ||
-                variation.bandwidth > _p.persistenceValue ||
+                variation.throughput > _p.persistenceValue ||
                 variation.latency > _p.persistenceValue ||
                 variation.watts > _p.persistenceValue;
         }break;
@@ -361,10 +382,13 @@ void Manager::lockKnobs() const{
     if(!_p.knobHyperthreadingEnabled){
         _configuration->getKnob(KNOB_HYPERTHREADING)->lock(_p.knobHyperthreadingFixedValue);
     }
+    if(!_p.knobClkModEnabled){
+        _configuration->getKnob(KNOB_CLKMOD)->lockToMax();
+    }
 }
 
 Selector* Manager::createSelector() const{
-    if(!_p.requirements.anySpecified() && 
+    if(!_p.requirements.anySpecified() &&
         _p.strategySelection != STRATEGY_SELECTION_MANUAL_CLI &&
         _p.strategySelection != STRATEGY_SELECTION_MANUAL_WEB){
         // We use fixed selector if there were no requirements specified and
@@ -382,6 +406,9 @@ Selector* Manager::createSelector() const{
             }break;
             case STRATEGY_SELECTION_ANALYTICAL:{
                 return new SelectorAnalytical(_p, *_configuration, _samples);
+            }break;
+            case STRATEGY_SELECTION_ANALYTICAL_FULL:{
+               return new SelectorAnalyticalFull(_p, *_configuration, _samples);
             }break;
             case STRATEGY_SELECTION_LEARNING:{
                 return new SelectorLearner(_p, *_configuration, _samples);
@@ -449,7 +476,7 @@ void Manager::observe(){
             // that the application is terminated and we may
             // not have received an actual sample. In that
             // case, we do not store the sample (which is the last one).
-            store = false;            
+            store = false;
         }else{
             double now = getMillisecondsTime();
             joules = getAndResetJoules();
@@ -464,7 +491,7 @@ void Manager::observe(){
                 // for the number of workers since we do it for the totalTasks
                 // count. When this flag is set we count iterations, not real
                 // tasks.
-                sample.bandwidth /= _configuration->getKnob(KNOB_VIRTUAL_CORES)->getRealValue();
+                sample.throughput /= _configuration->getKnob(KNOB_VIRTUAL_CORES)->getRealValue();
                 // When we have synchronous workers we need to count the iterations,
                 // not the real tasks (indeed in this case each worker will receive
                 // the same amount of tasks, e.g. in canneal) since they are sent in
@@ -477,7 +504,7 @@ void Manager::observe(){
     if(store){
         updateTasksCount(sample);
         _samples->add(sample);
-        _variations->add(_samples->coefficientVariation().bandwidth);
+        _variations->add(_samples->coefficientVariation().throughput);
 
         DEBUGB(samplesFile << sample << "\n");
         logObservation();
@@ -512,7 +539,7 @@ void Manager::act(KnobsValues kv, bool force){
         // We need to explicitely check that is not terminated.
         // Indeed, termination may have been detected by observe(),
         // but since we exit the control loop only after the act(),
-        // at this point we may be still in the control loop 
+        // at this point we may be still in the control loop
         // with _terminated = true.
         if(!_toSimulate && !_terminated){
             if(_p.cooldownPeriod){
@@ -552,11 +579,6 @@ ManagerInstrumented::ManagerInstrumented(const std::string& riffChannel,
     DEBUG("Creating configuration.");
     Manager::_configuration = new ConfigurationExternal(_p);
     DEBUG("Configuration created.");
-    lockKnobs();
-    DEBUG("Knobs locked.");
-    _configuration->createAllRealCombinations();
-    _selector = createSelector();
-    DEBUG("Selector created.");
     // For instrumented application we do not care if synchronous of not
     // (we count iterations).
     _p.synchronousWorkers = false;
@@ -567,9 +589,6 @@ ManagerInstrumented::ManagerInstrumented(nn::socket& riffSocket,
                                  Parameters nornirParameters):
             Manager(nornirParameters), _monitor(riffSocket, chid){
     Manager::_configuration = new ConfigurationExternal(_p);
-    lockKnobs();
-    _configuration->createAllRealCombinations();
-    _selector = createSelector();
     // For instrumented application we do not care if synchronous of not (we
     // count iterations).
     _p.synchronousWorkers = false;
@@ -586,8 +605,13 @@ ManagerInstrumented::~ManagerInstrumented(){
 
 void ManagerInstrumented::waitForStart(){
     Manager::_pid = _monitor.waitStart();
-    dynamic_cast<KnobVirtualCores*>(_configuration->getKnob(KNOB_VIRTUAL_CORES))->changeMax(_monitor.getTotalThreads());
+    if(_monitor.getTotalThreads()){
+        dynamic_cast<KnobVirtualCores*>(_configuration->getKnob(KNOB_VIRTUAL_CORES))->changeMax(_monitor.getTotalThreads());
+    }
     dynamic_cast<KnobMappingExternal*>(_configuration->getKnob(KNOB_MAPPING))->setPid(_pid);
+    if(_p.clockModulationEmulated){
+        dynamic_cast<KnobClkModEmulated*>(_configuration->getKnob(KNOB_CLKMOD))->setPid(_pid);
+    }
 }
 
 MonitoredSample ManagerInstrumented::getSample(){
@@ -598,8 +622,7 @@ MonitoredSample ManagerInstrumented::getSample(){
     // Knarr may return inconsistent data for latency and
     // utilization factor when performs sampling.
     // Check if this is the case.
-    if(sample.loadPercentage == RIFF_VALUE_INCONSISTENT){
-        sample.loadPercentage = RIFF_VALUE_INCONSISTENT;
+    if(sample.inconsistent){
         if(_p.requirements.minUtilization != NORNIR_REQUIREMENT_UNDEF ||
            _p.requirements.maxUtilization != NORNIR_REQUIREMENT_UNDEF){
             throw std::runtime_error("You specified requirements on loadPercentage but instrumenter is "
@@ -608,20 +631,13 @@ MonitoredSample ManagerInstrumented::getSample(){
                                      "to fix this issue.");
         }
     }
-    if(sample.latency == RIFF_VALUE_INCONSISTENT){
-        sample.latency = RIFF_VALUE_INCONSISTENT;
+    if(sample.inconsistent){
         if(_p.requirements.latency != NORNIR_REQUIREMENT_UNDEF){
             throw std::runtime_error("You specified requirements on latency but instrumenter is "
                                      "providing inconsistent latency values. Please call "
                                      "setConfiguration with samplingLengthMs = 0 on nornir's Instrumenter "
                                      "to fix this issue.");
         }
-    }
-    // If we were not able to collect sample data (e.g. because no tasks have
-    // been received during the last sampling period), then we set
-    // the latency the same as the last one.
-    if(sample.latency == RIFF_VALUE_NOT_AVAILABLE){
-        sample.latency = _samples->getLastSample().latency;
     }
     return sample;
 }
@@ -655,14 +671,11 @@ ManagerBlackBox::ManagerBlackBox(pid_t pid, Parameters nornirParameters):
         Manager(nornirParameters), _process(nornirParameters.mammut.getInstanceTask()->getProcessHandler(pid)){
     Manager::_pid = pid;
     Manager::_configuration = new ConfigurationExternal(_p);
-    lockKnobs();
-    _configuration->createAllRealCombinations();
-    _selector = createSelector();
     // For blackbox application we do not care if synchronous of not
     // (we count instructions).
     _p.synchronousWorkers = false;
     // Check supported requirements.
-    if(isPrimaryRequirement(_p.requirements.bandwidth) ||
+    if(isPrimaryRequirement(_p.requirements.throughput) ||
        _p.requirements.maxUtilization != NORNIR_REQUIREMENT_UNDEF ||
        isPrimaryRequirement(_p.requirements.executionTime) ||
        _p.requirements.latency != NORNIR_REQUIREMENT_UNDEF){
@@ -695,7 +708,10 @@ void ManagerBlackBox::waitForStart(){
         }
     }
     _startTime = getMillisecondsTime();
-    dynamic_cast<KnobMappingExternal*>(_configuration->getKnob(KNOB_MAPPING))->setProcessHandler(_process);
+    dynamic_cast<KnobMappingExternal*>(_configuration->getKnob(KNOB_MAPPING))->setPid(_process->getId());
+    if(_p.clockModulationEmulated){
+        dynamic_cast<KnobClkModEmulated*>(_configuration->getKnob(KNOB_CLKMOD))->setPid(_process->getId());
+    }
     _process->resetInstructions(); // To remove those executed before entering ROI
 }
 
@@ -711,9 +727,9 @@ MonitoredSample ManagerBlackBox::getSample(){
         _terminated = true;
         return sample;
     }
-    _process->getAndResetInstructions(instructions);
-    sample.bandwidth = instructions / ((getMillisecondsTime() - _lastStoredSampleMs) / 1000.0);
-    sample.latency = -1; // Not used.
+    assert(_process->getAndResetInstructions(instructions));
+    sample.throughput = instructions / ((getMillisecondsTime() - _lastStoredSampleMs) / 1000.0);
+    sample.latency = sample.throughput; // We set it only for phase detection purposes.
     sample.loadPercentage = 100.0; // We do not know what's the input bandwidth.
     sample.numTasks = instructions; // We consider a task to be an instruction.
     return sample;
@@ -733,6 +749,38 @@ void ManagerBlackBox::stretchPause(){
     kill(pid, SIGCONT);
 }
 
+void initNodesPreRun(Parameters p,
+                            AdaptiveNode* emitter, std::vector<AdaptiveNode*> workers,
+                            AdaptiveNode* collector, volatile bool* terminated, ff::ff_thread* lb,
+                            ff::ff_thread* gt){
+    for (size_t i = 0; i < workers.size(); i++) {
+        workers.at(i)->initPreRun(p, NODE_TYPE_WORKER, terminated);
+    }
+    if (emitter) {
+        emitter->initPreRun(p, NODE_TYPE_EMITTER, terminated, lb);
+    } else {
+        throw runtime_error("Emitter is needed to use the manager.");
+    }
+    if (collector) {
+        collector->initPreRun(p, NODE_TYPE_COLLECTOR, terminated,
+                              gt);
+    }
+}
+
+void initNodesPostRun(AdaptiveNode* emitter, std::vector<AdaptiveNode*> workers,
+                             AdaptiveNode* collector){
+    for (size_t i = 0; i < workers.size(); i++) {
+        workers.at(i)->initPostRun();
+    }
+    DEBUG("initNodesPostRun: Workers done.");
+    emitter->initPostRun();
+    DEBUG("initNodesPostRun: Emitter done.");
+    if (collector) {
+        collector->initPostRun();
+    }
+    DEBUG("initNodesPostRun: Collector done.");
+}
+
 void ManagerFastFlow::waitForStart(){
     if(_p.qSize){
         _farm->setFixedSize(true);
@@ -743,42 +791,39 @@ void ManagerFastFlow::waitForStart(){
     }
 
     DEBUG("Init pre run");
-    initNodesPreRun();
+    initNodesPreRun(_p, _emitter, _activeWorkers, _collector, &_terminated, _farm->getlb(), _farm->getgt());
 
     DEBUG("Going to run");
     _farm->run_then_freeze();
 
     DEBUG("Init post run");
-    initNodesPostRun();
+    initNodesPostRun(_emitter, _activeWorkers, _collector);
     DEBUG("Farm started.");
 }
 
-void ManagerFastFlow::askForSample(){
-    for(size_t i = 0; i < _activeWorkers.size(); i++){
-        _activeWorkers.at(i)->askForSample();
+void askForSample(std::vector<AdaptiveNode*> nodes){
+    for(size_t i = 0; i < nodes.size(); i++){
+        nodes.at(i)->askForSample();
     }
 }
 
-MonitoredSample ManagerFastFlow::getSampleResponse(){
-    MonitoredSample sample;    
-    uint numActiveWorkers = _activeWorkers.size();
+MonitoredSample getSampleResponse(std::vector<AdaptiveNode*> nodes, double currentLatency = 0){
+    MonitoredSample sample;
+    uint numActiveWorkers = nodes.size();
     for(size_t i = 0; i < numActiveWorkers; i++){
         MonitoredSample tmp;
-        AdaptiveNode* w = _activeWorkers.at(i);
-        w->getSampleResponse(tmp, _samples->average().latency);
-        sample.loadPercentage += tmp.loadPercentage;
-        sample.numTasks += tmp.numTasks;
-        sample.latency += tmp.latency;
-        sample.bandwidth += tmp.bandwidth;
+        AdaptiveNode* w = nodes.at(i);
+        w->getSampleResponse(tmp, currentLatency);
+        sample += tmp;
     }
     sample.loadPercentage /= numActiveWorkers;
     sample.latency /= numActiveWorkers;
-    return sample;
+    return sample;    
 }
 
 MonitoredSample ManagerFastFlow::getSample(){
-    askForSample();
-    return getSampleResponse();
+    askForSample(_activeWorkers);
+    return getSampleResponse(_activeWorkers, _samples->average().latency);
 }
 
 ManagerFastFlow::ManagerFastFlow(ff_farm<>* farm,
@@ -793,9 +838,6 @@ ManagerFastFlow::ManagerFastFlow(ff_farm<>* farm,
                                                    _activeWorkers,
                                                    _collector, _farm->getgt(),
                                                    &_terminated);
-    lockKnobs();
-    _configuration->createAllRealCombinations();
-    _selector = createSelector();
 }
 
 ManagerFastFlow::~ManagerFastFlow(){
@@ -807,34 +849,6 @@ ManagerFastFlow::~ManagerFastFlow(){
     if(Manager::_configuration){
         delete Manager::_configuration;
     }
-}
-
-void ManagerFastFlow::initNodesPreRun() {
-    for (size_t i = 0; i < _activeWorkers.size(); i++) {
-        _activeWorkers.at(i)->initPreRun(_p, NODE_TYPE_WORKER, &_terminated);
-    }
-    if (_emitter) {
-        _emitter->initPreRun(_p, NODE_TYPE_EMITTER, &_terminated, _farm->getlb());
-    } else {
-        throw runtime_error("Emitter is needed to use the manager.");
-    }
-    if (_collector) {
-        _collector->initPreRun(_p, NODE_TYPE_COLLECTOR, &_terminated,
-                               _farm->getgt());
-    }
-}
-
-void ManagerFastFlow::initNodesPostRun() {
-    for (size_t i = 0; i < _activeWorkers.size(); i++) {
-        _activeWorkers.at(i)->initPostRun();
-    }
-    DEBUG("initNodesPostRun: Workers done.");
-    _emitter->initPostRun();
-    DEBUG("initNodesPostRun: Emitter done.");
-    if (_collector) {
-        _collector->initPostRun();
-    }
-    DEBUG("initNodesPostRun: Collector done.");
 }
 
 void ManagerFastFlow::postConfigurationManagement(){
@@ -851,7 +865,7 @@ void ManagerFastFlow::postConfigurationManagement(){
          * terminated.
          */
         DEBUG("Getting spurious..");
-        sample = getSampleResponse();
+        sample = getSampleResponse(_activeWorkers, _samples->average().latency);
         updateTasksCount(sample);
         DEBUG("Spurious got.");
     }
@@ -882,5 +896,263 @@ void ManagerFastFlow::stretchPause(){
     k->prepareToRun(v);
     k->run(v);
 }
+
+ManagerFastFlowPipeline::ManagerFastFlowPipeline(ff_pipeline* pipe, std::vector<bool> farmsFlags, Parameters nornirParameters):
+        Manager(nornirParameters),
+        _pipe(pipe),
+        _farmsFlags(farmsFlags){
+    if(pipe->getStages().size() != _pipe->getStages().size()){
+        throw std::runtime_error("You need to specify a flag for each node in the pipeline.");
+    }
+    Manager::_pid = getpid();
+    // configuration creation, lockKnobs, _configuration->createAllRealCombinations(); and _selector = createSelector();
+    // are delayed in the waitForStart(). We need indeed to run the pipeline for a while
+    // to get the values of the knobPipeline knob.
+}
+
+ManagerFastFlowPipeline::~ManagerFastFlowPipeline(){
+    delete _samples;
+    delete _variations;
+    if(_selector){
+        delete _selector;
+    }
+    if(Manager::_configuration){
+        delete Manager::_configuration;
+    }
+}
+
+// Checks if it is a valid allocation and, if not, fixes it.
+static bool fixValidAllocation(std::vector<ff_farm<>*> farms, std::vector<double>& allowedValues){
+    for(size_t i = 0; i < farms.size(); i++){
+        if(allowedValues[i] > farms[i]->getWorkers().size()){
+            allowedValues[i] = farms[i]->getWorkers().size();
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool areEqualAllocations(std::vector<double> allocation_first, std::vector<double>& allocation_second){
+    for(size_t i = 0; i < allocation_first.size(); i++){
+        if(allocation_first[i] != allocation_second[i]){
+            return false;
+        }
+    }
+    return true;
+}
+
+void ManagerFastFlowPipeline::waitForStart(){
+    std::vector<KnobVirtualCoresFarm*> farmsKnobs;
+    std::vector<ff_farm<>*> farms;
+    double allowedTotalWorkers = _p.mammut.getInstanceTopology()->getVirtualCores().size();
+    for(size_t i = 0; i < _pipe->getStages().size(); i++){
+        if(_farmsFlags[i]){
+            ff_farm<>* realFarm = dynamic_cast<ff_farm<>*>(_pipe->getStages()[i]);
+            AdaptiveNode* emitter = dynamic_cast<AdaptiveNode*>(realFarm->getEmitter());
+            AdaptiveNode* collector = dynamic_cast<AdaptiveNode*>(realFarm->getCollector());
+            std::vector<AdaptiveNode*> workers = convertWorkers(realFarm->getWorkers());
+
+            _allWorkers.push_back(workers);
+            if(_p.qSize){
+                realFarm->setFixedSize(true);
+                // We need to multiply for the number of workers since FastFlow
+                // will divide the size for the number of workers.
+                realFarm->setInputQueueLength(_p.qSize * workers.size());
+                realFarm->setOutputQueueLength(_p.qSize * workers.size());
+            }
+
+            KnobVirtualCoresFarm* f = new KnobVirtualCoresFarm(_p, emitter, collector, realFarm->getgt(), 
+                                                               workers, &_terminated);
+            farmsKnobs.push_back(f);
+            farms.push_back(realFarm);
+            initNodesPreRun(_p, emitter, workers, collector, &_terminated, 
+                            realFarm->getlb(), realFarm->getgt());
+        }
+    }
+    _farmsKnobs = farmsKnobs;
+
+    DEBUG("Going to run");
+    _pipe->run_then_freeze();
+    for(size_t i = 0; i < farms.size(); i++){
+        ff_farm<>* realFarm = dynamic_cast<ff_farm<>*>(farms[i]);
+        AdaptiveNode* emitter = dynamic_cast<AdaptiveNode*>(realFarm->getEmitter());
+        AdaptiveNode* collector = dynamic_cast<AdaptiveNode*>(realFarm->getCollector());
+        std::vector<AdaptiveNode*> workers = convertWorkers(realFarm->getWorkers());
+        initNodesPostRun(emitter, workers, collector);
+    }
+    
+    std::vector<double> firstAllocation;
+    // Sets all the farm to 1 worker.
+    _activeWorkers.clear();
+    for(auto k : farmsKnobs){
+        auto allworkers = k->getActiveWorkers();
+        k->setRealValue(1);
+        // When a change in the number of workers in a farm occurs, their workers push a sample, so we need to retrieve it and discard it
+        for(auto an :allworkers){
+            MonitoredSample tmp;
+            an->getSampleResponse(tmp, 0);
+        }
+        allworkers = k->getActiveWorkers();
+        _activeWorkers.insert(_activeWorkers.end(), allworkers.begin(), allworkers.end());
+        firstAllocation.push_back(1);
+    }
+    _allowedValues.push_back(firstAllocation);
+    usleep(_p.samplingIntervalCalibration*MAMMUT_MICROSECS_IN_MILLISEC);
+
+    std::vector<MonitoredSample> monitoredData;
+    size_t bottleneckId = 0;
+    for(size_t i = 0; i < _activeWorkers.size(); i++){
+        AdaptiveNode* an = _activeWorkers[i];
+        an->askForSample();
+        MonitoredSample tmp;
+        an->getSampleResponse(tmp, 0);
+        monitoredData.push_back(tmp);
+    }
+
+    double numWorkers = farms.size();
+
+    double minThr = std::numeric_limits<double>::max();
+    double sndMinThr = std::numeric_limits<double>::max();
+    bool finished = false;
+    while(numWorkers < allowedTotalWorkers && !finished){
+        minThr = std::numeric_limits<double>::max();
+        sndMinThr = std::numeric_limits<double>::max();
+        for(size_t i = 0; i < _activeWorkers.size(); i++){
+            MonitoredSample tmp = monitoredData[i];
+            if(tmp.throughput < minThr){
+                sndMinThr = minThr;
+                minThr = tmp.throughput;
+                bottleneckId = i;
+            }else if(tmp.throughput < sndMinThr && tmp.throughput != minThr){
+                sndMinThr = tmp.throughput;
+            }
+        }  
+        std::vector<double> tmp = _allowedValues.back();
+        double oldNumWorkers = tmp[bottleneckId];
+        double newNumWorkers = std::ceil(tmp[bottleneckId] * (sndMinThr / minThr));
+        tmp[bottleneckId] = newNumWorkers;
+        monitoredData[bottleneckId].throughput = monitoredData[bottleneckId].throughput * 
+                                                 (newNumWorkers / oldNumWorkers); 
+
+        bool validAllocation = true;
+        if(!fixValidAllocation(farms, tmp)){
+            finished = true;
+            if(!_allowedValues.empty() && areEqualAllocations(tmp, _allowedValues.back())){
+                validAllocation = false;
+            }
+        }
+
+        if(validAllocation){
+            _allowedValues.push_back(tmp);
+
+#ifdef DEBUG_MANAGER
+            std::cout << "----New Pre-Calibration List Element----" << std::endl;
+            DEBUG("MinThr: " << minThr << " SndMinThr: " << sndMinThr);
+            std::cout << "OldThroughputs: ";
+            for(auto d : monitoredData){
+                std::cout << d.throughput << " ";
+            }
+            std::cout << std::endl;
+
+            std::cout << "Alloc: ";
+            for(auto d : tmp){
+                std::cout << d << " ";
+            }
+            std::cout << std::endl;
+            std::cout << "----------------------------------------" << std::endl;
+#endif
+        
+            numWorkers = 0;
+            for(double x : tmp){
+                numWorkers += x;
+            }
+        }
+    }
+    DEBUG("Pre-calibration terminated.");
+    
+    // Ok now configuration can be created.
+    Manager::_configuration = new ConfigurationPipe(_p, _samples,
+                                                    farmsKnobs, _allowedValues);
+    dynamic_cast<KnobMappingExternal*>(_configuration->getKnob(KNOB_MAPPING))->setPid(getpid());
+    if(_p.clockModulationEmulated){
+        dynamic_cast<KnobClkModEmulated*>(_configuration->getKnob(KNOB_CLKMOD))->setPid(getpid());
+    }
+    lockKnobs();
+    _configuration->createAllRealCombinations();
+    _selector = createSelector();
+}
+
+MonitoredSample ManagerFastFlowPipeline::getSample(){
+    for(KnobVirtualCoresFarm* fk : _farmsKnobs){
+        askForSample(fk->getActiveWorkers());
+    }
+    std::vector<MonitoredSample> samples;
+    MonitoredSample r;
+    for(KnobVirtualCoresFarm* fk : _farmsKnobs){
+        MonitoredSample tmp = getSampleResponse(fk->getActiveWorkers(), _samples->average().latency);
+        r.latency += tmp.latency;
+        r.loadPercentage += tmp.loadPercentage;
+        samples.push_back(tmp);
+    }
+    r.loadPercentage /= samples.size();
+    r.numTasks = samples.back().numTasks;
+    r.throughput = samples.back().throughput;
+    return r;
+}
+
+ulong ManagerFastFlowPipeline::getExecutionTime(){
+    return _pipe->ffTime();
+}
+
+void ManagerFastFlowPipeline::shrinkPause(){;}
+
+void ManagerFastFlowPipeline::stretchPause(){;}
+
+void ManagerFastFlowPipeline::postConfigurationManagement(){
+    const KnobVirtualCoresPipe* knobWorkers = dynamic_cast<const KnobVirtualCoresPipe*>(_configuration->getKnob(KNOB_VIRTUAL_CORES));
+    std::vector<AdaptiveNode*> newWorkers = knobWorkers->getActiveWorkers();
+    MonitoredSample sample;
+
+    std::vector<double> oldAllocation, newAllocation;
+
+    DEBUG("[Manager Pipeline] Moving from " << _activeWorkers.size() << " total workers to " << newWorkers.size() << " total workers.");
+    if(_activeWorkers.size() != newWorkers.size()){
+        for(auto v : _allowedValues){
+            double sum = 0;
+            for(auto d : v){
+                sum += d;
+            }
+            if(sum == _activeWorkers.size()){
+                oldAllocation = v;
+            }else if(sum == newWorkers.size()){
+                newAllocation = v;
+            }
+        }
+        DEBUG("[Manager Pipeline] Old allocation " << oldAllocation);
+        DEBUG("[Manager Pipeline] New allocation " << newAllocation);
+
+        for(size_t i = 0; i < newAllocation.size(); i++){
+            // Get spurious only for the farm that changed the number of workers
+            if(newAllocation[i] != oldAllocation[i]){
+                /**
+                 * Since I stopped the workers after I asked for a sample, there
+                 * may still be tasks that have been processed but I did not count.
+                 * For this reason, I get them.
+                 * I do not need to ask since the node put it in the Q when it
+                 * terminated.
+                 */
+                std::vector<AdaptiveNode*> stoppedWorkers = _allWorkers[i];
+                stoppedWorkers.resize(oldAllocation[i]);
+                DEBUG("[Manager Pipeline] Getting spurious..");
+                sample = getSampleResponse(stoppedWorkers, _samples->average().latency);
+                updateTasksCount(sample);
+                DEBUG("[Manager Pipeline] Spurious got.");
+            }
+        }
+    }
+
+    _activeWorkers = newWorkers;
+}
+
 
 }

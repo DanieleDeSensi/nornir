@@ -9,6 +9,7 @@ proc.out
 /src/external/riff/
 /src/external/riff/*
 /src/external/graphite-c-client/*
+/src/external/queues/msqueue
 /test/googletest/*
 /test/*.csv
 microbench/check

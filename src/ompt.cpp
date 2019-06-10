@@ -64,6 +64,7 @@ static inline void init(){
             ac.samplingLengthMs = 0;
             ac.consistencyThreshold = std::numeric_limits<double>::max();
             tmpinstr->setConfiguration(ac);
+            tmpinstr->markInconsistentSamples();
         }
         initialized = true;
         instr = tmpinstr;
@@ -180,6 +181,7 @@ ompt_start_tool_result_t* ompt_start_tool(
     static double time = 0;
     time = omp_get_wtime();
     static ompt_start_tool_result_t ompt_start_tool_result = {&ompt_initialize,&ompt_finalize,{.ptr=&time}};
+
     pid_t serverPid = fork();
     if(!serverPid){
       is = new nornir::InstrumenterServer(true);

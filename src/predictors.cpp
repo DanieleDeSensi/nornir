@@ -453,7 +453,7 @@ void PredictorLinearRegression::prepareForPredictions(){
         // One observation per column.
         arma::mat dataMl(_observations.begin()->second.data->getNumPredictors(),
                          _observations.size());
-        arma::vec responsesMl(_observations.size());
+        arma::rowvec responsesMl; //(_observations.size());
 
         size_t i = 0;
         for(obs_it iterator = _observations.begin();
@@ -463,8 +463,11 @@ void PredictorLinearRegression::prepareForPredictions(){
 
             if(!_p.regressionAging || contains(_agingVector, iterator->first)){
                 obs.data->toArmaRow(i, dataMl);
+                /*
                 responsesMl(i) = obs.response;
                 ++i;
+                */
+                responsesMl << obs.response;
             }
         }
 
@@ -499,8 +502,12 @@ void PredictorLinearRegression::prepareForPredictions(){
         }
 
         std::ostringstream x1, x2;
+#ifdef ARMA_DEPRECATED_CERR
+        arma::set_cerr_stream(x1);
+#else
         arma::set_stream_err1(x1);
         arma::set_stream_err2(x2);
+#endif
         LinearRegression newlr = LinearRegression(dataMl, responsesMl);
         if(x1.str().compare("") || x2.str().compare("")){
             ;
@@ -519,7 +526,7 @@ double PredictorLinearRegression::predict(const KnobsValues& values){
 
     // One observation per column.
     arma::mat predictionInputMl(_predictionInput->getNumPredictors(), 1);
-    arma::vec result(1);
+    arma::rowvec result(1);
     double res = 0;
     _predictionInput->toArmaRow(0, predictionInputMl);
 
@@ -1286,7 +1293,7 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
 
 				mat usl_freq = _xs2.submat(0, 0, _xs2.n_rows - 2, _xs2.n_cols - 1);
 				mat ht = _xs2.submat(_xs2.n_rows - 1, 0, _xs2.n_rows - 1, _xs2.n_cols - 1);
-				vec extime_noht(_xs2.n_cols);
+				rowvec extime_noht(_xs2.n_cols);
 
 				//Using trained model to obtain data needed for the second regression
 				_lr1->Predict(usl_freq, extime_noht);
@@ -1334,13 +1341,13 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
 			usl_freq(1, 0) = getKi(numCores, freq);
 			usl_freq(2, 0) = getGamma(numCores, freq);
 
-			vec extime_noht(1);
+			rowvec extime_noht(1);
 
 			_lr1->Predict(usl_freq, extime_noht);
 
 			mat ht(1, 1);
 			ht(0, 0) = getHT(numContexts);
-			vec extime_ht(1);
+			rowvec extime_ht(1);
 
 			_lr2->Predict(ht, extime_ht);
 
@@ -1360,7 +1367,7 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
 			p_regr(2, 0) = nActiveCpu * fullCPUvoltage * fullCPUvoltage* freq *_phyCoresPerCpu;
 			p_regr(3, 0) = 1 - (1 / numContexts);
 
-			vec power_ht(1);
+			rowvec power_ht(1);
 
 			_lr2->Predict(p_regr, power_ht);
 

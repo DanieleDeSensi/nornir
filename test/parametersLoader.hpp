@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <linux/limits.h>
 #include <time.h>
-#include "../src/nornir.hpp"
+#include <nornir/nornir.hpp>
 
 inline std::vector<std::string> getTestingArchitectures(){
     return {"repara"};
@@ -32,7 +32,7 @@ inline nornir::Parameters getParameters(const std::string& archName,
         p = new nornir::Parameters(fileName);
     }
     mammut::SimulationParameters simulationParameters;
-    simulationParameters.sysfsRootPrefix = "../src/external/mammut/test/archs/" + archName;
+    simulationParameters.sysfsRootPrefix = "./mammut-test/archs/" + archName;
     p->mammut.setSimulationParameters(simulationParameters);
     return *p;
 }

@@ -27,9 +27,14 @@
 
 #ifdef __x86_64__
 
-#include "interpreter.hpp"
-#include "../external/mammut/mammut/mammut.hpp"
+#include <nornir/dataflow/interpreter.hpp>
+#include <mammut/mammut.hpp>
 #include <map>
+
+PUSH_WARNING
+GCC_DISABLE_WARNING(vla)
+#include "../external/queues/MSqueue.hpp"
+POP_WARNING
 
 using namespace mammut;
 using namespace mammut::topology;
@@ -198,7 +203,7 @@ private:
     size_t _maxGraphs;
     bool _orderedProc;
     bool _orderedOut;
-    QUEUE& _q;
+    QUEUE* _q;
     size_t _lastRcvId;
     ulong _tasksInside;
     ulong _graphsInside;
@@ -268,7 +273,7 @@ private:
     }
 public:
     Scheduler(Mdfg *graph, InputStream *i, OutputStream *o, size_t parDegree,
-              QUEUE& q, std::vector<WorkerMdf*>& workers, DataflowParameters* p):
+              QUEUE* q, std::vector<WorkerMdf*>& workers, DataflowParameters* p):
                 _in(i), _out(o), _graph(graph), _compiled(false), _nextGraphId(0),
                 _pool(NULL), _taskSent(0), _lastSent(0), _maxWorkers(parDegree),
                 _numWorkers(parDegree), _maxGraphs(p->maxGraphs),
@@ -324,7 +329,7 @@ public:
         Mdfi* ins;
         void* task;
         uint poppedId;
-        _q.registerq(0);
+        _q->registerq(0);
 
 #ifdef POOL
         _pool = new std::deque<Mdfg*>;
@@ -351,16 +356,17 @@ public:
             /////////////////////
             if(_graphsInside < _maxGraphs &&
                _in->hasNext() && (next = _in->next()) != NULL){
+                // cppcheck-suppress unreadVariable
                 getFromInput(next);
-                //popped = 0;
-                ++inserted;
+                //popped = 0;                
+                ++inserted;                
                 ++totalSent;
             }
 
             //////////////////////
             // Get from output. //
             //////////////////////
-            if(_q.pop((void**) &task, 0)){
+            if(_q->pop((void**) &task, 0)){
                 popped++;
                 --_tasksInside;
                 poppedIns = static_cast<Mdfi*>(task);
@@ -424,7 +430,8 @@ public:
                          **/
                         if(ins->isFireable()){
                             sendToWorkers(ins);
-                            ++_numMdfi[ins->getId()];
+                            // cppcheck-suppress unreadVariable
+                            ++_numMdfi[ins->getId()];                            
                             ++totalSent;
                         }
                     }
@@ -456,21 +463,21 @@ public:
                 }
             }
         }/**End of while(!end).**/
-        _q.deregisterq(0);
+        _q->deregisterq(0);
         return NULL;
     }
 };
 
-WorkerMdf::WorkerMdf(QUEUE& q):_q(q), _init(false), _qId(-1), _processedTasks(0){;}
+WorkerMdf::WorkerMdf(QUEUE* q):_q(q), _init(false), _qId(-1), _processedTasks(0){;}
 
 void WorkerMdf::compute(Mdfi* t){
     if(!_init){
         _qId = getId() + 1;
         _init = true;
-        _q.registerq(_qId);
+        _q->registerq(_qId);
     }
     t->compute();
-    _q.push((void*) t, _qId);
+    _q->push((void*) t, _qId);
     ++_processedTasks;
 }
 
@@ -501,7 +508,7 @@ Interpreter::Interpreter(Parameters* p, Mdfg *graph, InputStream *i, OutputStrea
     }
 
     /**Creates the SPSC queues.**/
-    _q.init(_maxWorkers + 1); /* +1 for the scheduler. */
+    _q->init(_maxWorkers + 1); /* +1 for the scheduler. */
 
     _p->isolateManager = true;
     _s = new Scheduler(graph, i, o, _maxWorkers, _q, _workers, &(_p->dataflow));

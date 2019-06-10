@@ -35,7 +35,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-#include "../src/external/fastflow/ff/utils.hpp"
+#include <nornir/external/fastflow/ff/utils.hpp>
 
 unsigned long getNanoSeconds(){
     struct timespec spec;

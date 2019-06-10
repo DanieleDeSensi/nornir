@@ -18,7 +18,6 @@ int main(int argc, char** argv){
     /** Gets the energy counters (one per CPU). **/
     Counter* counter = energy->getCounter();
     if(!counter){
-        cout << "Power counters not available on this machine." << endl;
         return -1;
     }
 

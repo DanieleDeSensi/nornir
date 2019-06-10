@@ -30,10 +30,10 @@
  * \brief Predictors used by adaptive farm.
  */
 
-#include "predictors.hpp"
-#include "manager.hpp"
+#include <nornir/predictors.hpp>
+#include <nornir/manager.hpp>
 
-#include "external/mammut/mammut/cpufreq/cpufreq.hpp"
+#include <mammut/cpufreq/cpufreq.hpp>
 
 #undef DEBUG
 #undef DEBUGB
@@ -59,7 +59,7 @@ using namespace arma;
 
 using namespace std;
 
-static double getVoltage(VoltageTable table, uint workers, Frequency frequency){
+static double getVoltage(const VoltageTable& table, uint workers, Frequency frequency){
     VoltageTableKey key(workers, frequency);
     VoltageTableIterator it = table.find(key);
     if(it != table.end()){
@@ -203,7 +203,7 @@ static void getStaticDynamicPower(double usedPhysicalCores, Frequency frequency,
         // For full domains
         double voltage = 1.0;
         if(p.knobFrequencyEnabled){
-            voltage = getVoltage(p.archData.voltageTable, phyCoresPerDomain, frequency);
+            voltage = getVoltage(*static_cast<mammut::cpufreq::VoltageTable*>(p.archData.voltageTable), phyCoresPerDomain, frequency);
         }
         staticPower += (voltage)*fullDomains;
         dynamicPower += (phyCoresPerDomain*frequency*voltage*voltage*clkMod)*fullDomains;
@@ -211,7 +211,7 @@ static void getStaticDynamicPower(double usedPhysicalCores, Frequency frequency,
         // For spurious domain
         if(coresOnSpuriousDomain){
             if(p.knobFrequencyEnabled){
-                voltage = getVoltage(p.archData.voltageTable, coresOnSpuriousDomain, frequency);
+                voltage = getVoltage(*static_cast<mammut::cpufreq::VoltageTable*>(p.archData.voltageTable), coresOnSpuriousDomain, frequency);
             }
             staticPower += voltage;
             dynamicPower += coresOnSpuriousDomain*frequency*voltage*voltage*clkMod;
@@ -265,7 +265,7 @@ void RegressionDataPower::init(const KnobsValues& values){
         }
         double voltage = 1.0;
         if(_p.knobFrequencyEnabled){
-            voltage = getVoltage(_p.archData.voltageTable, 0, frequencyUnused);
+            voltage = getVoltage(*static_cast<mammut::cpufreq::VoltageTable*>(_p.archData.voltageTable), 0, frequencyUnused);
         }
         // See TACO2016 paper, equations 6. and 7.
         _voltagePerUnusedDomains = (voltage * unusedDomains) + staticPowerUsedDomains;
@@ -498,8 +498,7 @@ void PredictorLinearRegression::prepareForPredictions(){
             responsesMl.resize(_agingVector.size());
         }
 
-        std::ostringstream x1;
-        std::ostringstream x2;
+        std::ostringstream x1, x2;
         arma::set_stream_err1(x1);
         arma::set_stream_err2(x2);
         LinearRegression newlr = LinearRegression(dataMl, responsesMl);
@@ -630,7 +629,7 @@ void PredictorUsl::refine(){
         }else if(numCores == 1){
             _minSpeedCoresThr = throughput;
         }
-    }else if(speed != _minSpeed){
+    }else{ // speed != _minSpeed
         double minMaxScaling = _maxSpeedThr / _minSpeedThr;
         // We get the expected throughput at minimum frequency starting from the actual
         // throughput at generic frequency. To do so we apply the inverse of the function
@@ -1249,10 +1248,10 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
 		}break;
 		case PREDICTION_POWER: {
 
-			double fullCPUvoltage = getVoltage(_p.archData.voltageTable, _phyCoresPerCpu, freq);
+			double fullCPUvoltage = getVoltage(*static_cast<mammut::cpufreq::VoltageTable*>(_p.archData.voltageTable), _phyCoresPerCpu, freq);
 
 			vec x(4);
-			x(0) = (_cpus - nActiveCpu) * getVoltage(_p.archData.voltageTable, 0, freq); //Static power of inutilized cpus
+			x(0) = (_cpus - nActiveCpu) * getVoltage(*static_cast<mammut::cpufreq::VoltageTable*>(_p.archData.voltageTable), 0, freq); //Static power of inutilized cpus
 			x(1) = nActiveCpu * fullCPUvoltage; //Static power of fully utilized cpus
 			x(2) = nActiveCpu * fullCPUvoltage * fullCPUvoltage* freq *_phyCoresPerCpu; //Dynamic power of fully utilized cpus
 			x(3) = 1 - (1 / numContexts); //Hyper Threading power overhead
@@ -1353,10 +1352,10 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
 		}break;
 		case PREDICTION_POWER: {
 
-			double fullCPUvoltage = getVoltage(_p.archData.voltageTable, _phyCoresPerCpu, freq);
+			double fullCPUvoltage = getVoltage(*static_cast<mammut::cpufreq::VoltageTable*>(_p.archData.voltageTable), _phyCoresPerCpu, freq);
 
 			mat p_regr(4, 1);
-			p_regr(0, 0) = (_cpus - nActiveCpu) * getVoltage(_p.archData.voltageTable, 0, freq);
+			p_regr(0, 0) = (_cpus - nActiveCpu) * getVoltage(*static_cast<mammut::cpufreq::VoltageTable*>(_p.archData.voltageTable), 0, freq);
 			p_regr(1, 0) = nActiveCpu * fullCPUvoltage;
 			p_regr(2, 0) = nActiveCpu * fullCPUvoltage * fullCPUvoltage* freq *_phyCoresPerCpu;
 			p_regr(3, 0) = 1 - (1 / numContexts);

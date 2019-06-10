@@ -6,7 +6,8 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <time.h>
-#include "../src/nornir.hpp"
+#include <nornir/nornir.hpp>
+#include <nornir/configuration.hpp>
 #include "gtest/gtest.h"
 
 using namespace nornir;

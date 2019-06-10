@@ -25,10 +25,10 @@
  * =========================================================================
  */
 
-#include "selectors.hpp"
-#include "utils.hpp"
-#include "external/riff/src/external/cppnanomsg/nn.hpp"
-#include "external/riff/src/external/nanomsg/src/pair.h"
+#include <nornir/selectors.hpp>
+#include <nornir/utils.hpp>
+#include <riff/external/cppnanomsg/nn.hpp>
+#include <riff/external/nanomsg/src/pair.h>
 #include <cfloat>
 #include <string>
 #include <iostream>

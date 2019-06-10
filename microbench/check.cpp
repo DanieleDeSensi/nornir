@@ -28,7 +28,7 @@
  */
 
 #include <iostream>
-#include "../src/external/mammut/mammut/mammut.hpp"
+#include <mammut/mammut.hpp>
 
 using namespace std;
 using namespace mammut;
@@ -51,7 +51,7 @@ int main(int argc, char** argv){
                     "| cores clock ticks. This constraint is not imposed   |\n"
                     "| by the algorithm but it is needed since for the     |\n"
                     "| moment no other timestamping mechanisms are         |\n"
-                    "|supported.                                           |\n"
+                    "| supported.                                          |\n"
                     "=======================================================\n";
             return -1;
         }
@@ -66,6 +66,8 @@ int main(int argc, char** argv){
                 "| available, they are still not supported by Nornir). |\n"
                 "| Accordingly, no guarantees on power consumption can |\n"
                 "| be provided.                                        |\n"
+                "| If you are on an Intel machine, you can try to load |\n"
+                "| the 'msr' module and run the command again.         |\n"
                 "=======================================================\n";
     }
 }

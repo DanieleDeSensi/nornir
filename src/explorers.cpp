@@ -25,8 +25,8 @@
  * =========================================================================
  */
 
-#include "explorers.hpp"
-#include "configuration.hpp"
+#include <nornir/explorers.hpp>
+#include <nornir/configuration.hpp>
 
 #undef DEBUG
 #undef DEBUGB

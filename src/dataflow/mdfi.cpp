@@ -25,7 +25,7 @@
  * =========================================================================
  */
 
-#include "mdfi.hpp"
+#include <nornir/dataflow/mdfi.hpp>
 
 namespace nornir{
 namespace dataflow{

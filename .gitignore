@@ -14,7 +14,6 @@ proc.out
 microbench/check
 microbench/ticksPerNs
 microbench/voltageTable
-microbench/voltageTable.cpp
 bin/selector-manual-web/server
 test/testConfiguration
 test/testKnobs

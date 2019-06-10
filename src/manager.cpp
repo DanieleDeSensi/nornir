@@ -25,17 +25,18 @@
  * =========================================================================
  */
 
-#include "manager.hpp"
+#include <nornir/manager-ff.hpp>
 
-#include "./ffincs.hpp"
-#include "./parameters.hpp"
-#include "./predictors.hpp"
-#include "./node.hpp"
-#include "./utils.hpp"
+#include <nornir/ffincs.hpp>
+#include <nornir/parameters.hpp>
+#include <nornir/predictors.hpp>
+#include <nornir/node.hpp>
+#include <nornir/utils.hpp>
+#include <nornir/selectors.hpp>
 
-#include "external/mammut/mammut/module.hpp"
-#include "external/mammut/mammut/utils.hpp"
-#include "external/mammut/mammut/mammut.hpp"
+#include <mammut/module.hpp>
+#include <mammut/utils.hpp>
+#include <mammut/mammut.hpp>
 
 #include <cmath>
 #include <iostream>
@@ -73,6 +74,14 @@ static Parameters& validate(Parameters& p){
         throw runtime_error("Invalid parameters: " + std::to_string(apv));
     }
     return p;
+}
+
+static std::vector<AdaptiveNode*> convertWorkers(ff::svector<ff::ff_node*> w){
+    std::vector<AdaptiveNode*> r;
+    for(size_t i = 0; i < w.size(); i++){
+        r.push_back(dynamic_cast<AdaptiveNode*>(w[i]));
+    }
+    return r;
 }
 
 Manager::Manager(Parameters nornirParameters):
@@ -170,8 +179,7 @@ void Manager::run(){
     _lastStoredSampleMs = getMillisecondsTime();
 
     /* Force the first calibration point. **/
-    KnobsValues kv = decide();
-    act(kv);
+    decideAndAct();
 
     if(!_toSimulate){
         ThreadHandler* thisThread = _task->getProcessHandler(getpid())->getThreadHandler(gettid());
@@ -207,8 +215,7 @@ void Manager::run(){
 
             if(!persist()){
                 DEBUG("Asking selector.");
-                KnobsValues kv = decide();
-                act(kv);
+                decideAndAct();
                 startSample = getMillisecondsTime();
             }
         }else{
@@ -511,22 +518,21 @@ void Manager::observe(){
     }
 }
 
-KnobsValues Manager::decide(){
+void Manager::decideAndAct(bool force){
+    KnobsValues kv;
     if(!_configuration->knobsChangeNeeded()){
-        return _configuration->getRealValues();
+        kv = _configuration->getRealValues();
+    }else{
+        if(_totalTasks){
+            // We need to update the input bandwidth only if we already processed
+            // some tasks.  By doing this check, we avoid updating bandwidth for
+            // the first forced reconfiguration.
+            _selector->updateBandwidthIn();
+            _selector->updateTotalTasks(_totalTasks);
+        }
+        kv = _selector->getNextKnobsValues();
     }
 
-    if(_totalTasks){
-        // We need to update the input bandwidth only if we already processed
-        // some tasks.  By doing this check, we avoid updating bandwidth for
-        // the first forced reconfiguration.
-        _selector->updateBandwidthIn();
-        _selector->updateTotalTasks(_totalTasks);
-    }
-    return _selector->getNextKnobsValues();
-}
-
-void Manager::act(KnobsValues kv, bool force){
     if(force || !_configuration->equal(kv)){
         _configuration->setValues(kv);
         postConfigurationManagement();
@@ -1154,5 +1160,17 @@ void ManagerFastFlowPipeline::postConfigurationManagement(){
     _activeWorkers = newWorkers;
 }
 
+ManagerTest::ManagerTest(Parameters nornirParameters, uint numthreads):Manager(nornirParameters){
+    //TODO: Avoid this initialization phase which is common to all the managers.
+    Manager::_configuration = new ConfigurationExternal(_p);
+    dynamic_cast<KnobVirtualCores*>(_configuration->getKnob(KNOB_VIRTUAL_CORES))->changeMax(numthreads);
+    // For instrumented application we do not care if synchronous of not
+    // (we count iterations).
+    _p.synchronousWorkers = false;
+}
+
+void ManagerTest::waitForStart(){
+    dynamic_cast<KnobMappingExternal*>(_configuration->getKnob(KNOB_MAPPING))->setPid(getpid());
+}
 
 }

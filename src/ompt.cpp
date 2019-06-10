@@ -27,17 +27,17 @@
  *
  * =========================================================================
  */
-
-#ifdef WITH_OMPT
 #define __STDC_FORMAT_MACROS 1
 
-#include "instrumenter.hpp"
+#include <nornir/instrumenter.hpp>
 
 #include <omp.h>
 #include <ompt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #undef DEBUG
 #undef DEBUGB
@@ -51,20 +51,22 @@
 #define DEBUGB(x) do {} while(0)
 #endif
 
-static nornir::Instrumenter* instr;
+static nornir::Instrumenter* instr = NULL;
 static bool initialized = false;
 
 static inline void init(){
-    if(!initialized){
-        initialized = true;
+    if(omp_get_thread_num() == 0 && !initialized){
         const char* parameters_file = getenv("NORNIR_OMP_PARAMETERS");
+        nornir::Instrumenter* tmpinstr = NULL;
         if(parameters_file){
-            instr = new nornir::Instrumenter(std::string(parameters_file), omp_get_num_threads());
+            tmpinstr = new nornir::Instrumenter(std::string(parameters_file), omp_get_num_threads());
             riff::ApplicationConfiguration ac;
             ac.samplingLengthMs = 0;
             ac.consistencyThreshold = std::numeric_limits<double>::max();
-            instr->setConfiguration(ac);
+            tmpinstr->setConfiguration(ac);
         }
+        initialized = true;
+        instr = tmpinstr;
     }
 }
 
@@ -93,7 +95,7 @@ static const char* ompt_task_status_t_values[] = {
     "ompt_task_complete",
     "ompt_task_yield",
     "ompt_task_cancel",
-  "ompt_task_others"
+    "ompt_task_others"
 };
 #endif
 
@@ -138,7 +140,7 @@ on_ompt_callback_implicit_task(
 
 static void
 on_ompt_callback_chunk(unsigned long long chunk_size){
-    DEBUG("[Nornir] Chunk size: %ld\n", chunk_size);
+    DEBUG("[Nornir] Chunk size: %llu\n", chunk_size);
     instrument(chunk_size);
 }
 
@@ -160,11 +162,13 @@ int ompt_initialize(
     return 1; //success
 }
 
+static nornir::InstrumenterServer* is;
+
 void ompt_finalize(ompt_data_t* data)
 {
     DEBUG("[Nornir] application runtime: %f\n", omp_get_wtime()-*(double*)(data->ptr));
-    if(instr){
-        instr->terminate();
+    if(omp_get_thread_num() == 0 && instr){
+        instr->terminate();        
         delete instr;
     }
 }
@@ -176,7 +180,14 @@ ompt_start_tool_result_t* ompt_start_tool(
     static double time = 0;
     time = omp_get_wtime();
     static ompt_start_tool_result_t ompt_start_tool_result = {&ompt_initialize,&ompt_finalize,{.ptr=&time}};
+    pid_t serverPid = fork();
+    if(!serverPid){
+      is = new nornir::InstrumenterServer(true);
+      is->start();
+      is->join();
+      exit(0);
+    }
+
     return &ompt_start_tool_result;
 }
 
-#endif // WITH_OMPT

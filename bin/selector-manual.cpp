@@ -28,7 +28,8 @@
  * =========================================================================
  */
 
-#include "../src/nornir.hpp"
+#include <nornir/nornir.hpp>
+#include <nornir/selectors.hpp>
 #include <tclap/CmdLine.h>
 
 using namespace nornir;

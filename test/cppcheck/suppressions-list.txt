@@ -1,5 +1,5 @@
 // External libraries
-*:src/external/*
+*:../src/external/*
 
 // To avoid error on unmatched suppressions
 unmatchedSuppression
@@ -7,3 +7,4 @@ unmatchedSuppression
 uninitMemberVar
 // Scanf
 invalidscanf
+

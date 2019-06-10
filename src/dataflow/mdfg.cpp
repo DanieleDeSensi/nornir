@@ -25,7 +25,7 @@
  * =========================================================================
  */
 
-#include "mdfg.hpp"
+#include <nornir/dataflow/mdfg.hpp>
 
 namespace nornir{
 namespace dataflow{

@@ -30,11 +30,11 @@
  * \brief Statistics collection utilities.
  **/
 
-#include "stats.hpp"
-#include "configuration.hpp"
-#include "selectors.hpp"
+#include <nornir/stats.hpp>
+#include <nornir/configuration.hpp>
+#include <nornir/selectors.hpp>
 extern "C"{
-#include "external/graphite-c-client/graphite-client.h"
+#include <nornir/graphite-client.h>
 }
 
 namespace nornir{

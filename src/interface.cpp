@@ -25,7 +25,7 @@
  * =========================================================================
  */
 
-#include "interface.hpp"
+#include <nornir/interface.hpp>
 
 namespace nornir{
     ParallelForRange terminationRange;

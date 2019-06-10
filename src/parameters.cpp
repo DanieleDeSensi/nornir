@@ -25,9 +25,10 @@
  * =========================================================================
  */
 
-#include "parameters.hpp"
-#include "utils.hpp"
+#include <nornir/parameters.hpp>
+#include <nornir/utils.hpp>
 
+#include <mammut/mammut.hpp>
 #include <cstring>
 #include <limits>
 
@@ -290,7 +291,8 @@ void Parameters::setDefault(){
            existsFile(confFileVersion) &&
            readFirstLineFromFile(confFileVersion).compare(CONFIGURATION_VERSION) == 0){
             archData.loadXml(confFileArch);
-            loadVoltageTable(archData.voltageTable, confFileVoltage);
+            archData.voltageTable = new VoltageTable();
+            loadVoltageTable(*static_cast<VoltageTable*>(archData.voltageTable), confFileVoltage);
             found = true;
             break;
         }
@@ -298,7 +300,7 @@ void Parameters::setDefault(){
 
     if(!found){
         throw runtime_error("Impossible to find configuration files. Please run "
-                            "'sudo make microbench' from the nornir root folder.");
+                            "'make microbench' from the nornir root folder.");
     }
 }
 
@@ -352,11 +354,7 @@ void Parameters::setDefaultPost(){
     }
 }
 
-bool Parameters::isGovernorAvailable(Governor g){
-    return mammut.getInstanceCpuFreq()->isGovernorAvailable(g);
-}
-
-vector<Frequency> Parameters::getAvailableFrequencies(){
+static vector<Frequency> getAvailableFrequencies(const Mammut& mammut){
     vector<Frequency> frequencies;
     CpuFreq* cpuFreq = mammut.getInstanceCpuFreq();
     if(cpuFreq){
@@ -381,18 +379,18 @@ bool Parameters::isUnusedVcOffAvailable(){
 }
 
 bool Parameters::isFrequencySettable(){
-    vector<Frequency> frequencies = getAvailableFrequencies();
-    return isGovernorAvailable(GOVERNOR_USERSPACE) && frequencies.size();
+    vector<Frequency> frequencies = getAvailableFrequencies(mammut);
+    return mammut.getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_USERSPACE) && frequencies.size();
 
 }
 
 bool Parameters::isLowestFrequencySettable(){
-    return isGovernorAvailable(GOVERNOR_POWERSAVE) ||
+    return mammut.getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_POWERSAVE) ||
            isFrequencySettable();
 }
 
 bool Parameters::isHighestFrequencySettable(){
-    return isGovernorAvailable(GOVERNOR_PERFORMANCE) ||
+    return mammut.getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_PERFORMANCE) ||
            isFrequencySettable();
 }
 
@@ -424,16 +422,16 @@ ParametersValidation Parameters::validateUnusedVc(StrategyUnusedVirtualCores& s)
 }
 
 ParametersValidation Parameters::validateKnobFrequencies(){
-    vector<Frequency> availableFrequencies = getAvailableFrequencies();
-    vector<VirtualCore*> virtualCores;
-    virtualCores = mammut.getInstanceTopology()->getVirtualCores();
+    vector<Frequency> availableFrequencies = getAvailableFrequencies(mammut);
 
     if(knobFrequencyEnabled &&
-       (!isGovernorAvailable(GOVERNOR_USERSPACE) || availableFrequencies.empty())){
+       (!mammut.getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_USERSPACE) || availableFrequencies.empty())){
         return VALIDATION_NO_MANUAL_DVFS;
     }
 
 #if defined(__x86_64__)
+    vector<VirtualCore*> virtualCores;
+    virtualCores = mammut.getInstanceTopology()->getVirtualCores();
     for(size_t i = 0; i < virtualCores.size(); i++){
         if(!virtualCores.at(i)->hasFlag("constant_tsc")){
             return VALIDATION_NO_CONSTANT_TSC;
@@ -877,14 +875,12 @@ void Parameters::loadXml(const string& paramFileName){
     SETVALUE(xt, Uint, dataflow.maxInterpreters);
 }
 
-Parameters::Parameters(Communicator* const communicator):
-      mammut(communicator){
+Parameters::Parameters(Communicator* const communicator){
     setDefault();
 }
 
 Parameters::Parameters(const string& paramFileName,
-                       Communicator* const communicator):
-      mammut(communicator){
+                       Communicator* const communicator){
     setDefault();
     /** Loading parameters. **/
     loadXml(paramFileName);

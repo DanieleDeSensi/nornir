@@ -4,6 +4,7 @@
 #include "hzdptr.h"
 #include "primitives.h"
 
+// cppcheck-suppress noConstructor
 class MSQueue {
 private:
 #define EMPTY (void *) -1
@@ -145,7 +146,7 @@ public:
 	    printf("TH%d n push = %ld, n pop = %ld\n", i, P[i], C[i]);
 	    sum += C[i];
 	}
-	printf("Total elements read: %ld\n", sum);
+	printf("Total elements read: %zu\n", sum);
     }
 
 private:

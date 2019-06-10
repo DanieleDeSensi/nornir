@@ -25,11 +25,10 @@
  * =========================================================================
  */
 
-#include "./node.hpp"
-#include "./utils.hpp"
+#include <nornir/node.hpp>
+#include <nornir/utils.hpp>
 
-#include "external/mammut/mammut/module.hpp"
-#include "external/mammut/mammut/utils.hpp"
+#include <mammut/mammut.hpp>
 
 #include <fstream>
 #include <streambuf>

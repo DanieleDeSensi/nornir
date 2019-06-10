@@ -25,7 +25,7 @@
  * =========================================================================
  */
 
-#include "configuration.hpp"
+#include <nornir/configuration.hpp>
 #include <iostream>
 
 #ifdef DEBUG_CONFIGURATION
@@ -315,15 +315,6 @@ ConfigurationPipe::ConfigurationPipe(const Parameters& p,
     }
 
     _triggers[TRIGGER_TYPE_Q_BLOCKING] = NULL;
-}
-
-
-std::vector<AdaptiveNode*> convertWorkers(ff::svector<ff::ff_node*> w){
-    std::vector<AdaptiveNode*> r;
-    for(size_t i = 0; i < w.size(); i++){
-        r.push_back(dynamic_cast<AdaptiveNode*>(w[i]));
-    }
-    return r;
 }
 
 }

@@ -25,7 +25,7 @@
  * =========================================================================
  */
 
-#include "../src/nornir.hpp"
+#include <nornir/nornir.hpp>
 
 #include <unistd.h>
 

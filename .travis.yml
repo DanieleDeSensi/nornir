@@ -17,7 +17,6 @@ install:
 
 script:
   # Install mlpack
-  - cd /tmp
   - wget https://github.com/mlpack/mlpack/archive/mlpack-3.1.1.zip
   - unzip mlpack-3.1.1.zip
   - cd mlpack-mlpack-3.1.1/
@@ -26,7 +25,8 @@ script:
   - cmake -DBUILD_CLI_EXECUTABLES=OFF -DBUILD_TESTS=OFF ../
   - make
   - sudo make install
-  - cd 
+  - cd ../../
+  - rm -rf mlpack-mlpack-3.1.1/
   # Runs compilation, cppcheck, tests and coverage collection
   - mkdir build
   - cd build

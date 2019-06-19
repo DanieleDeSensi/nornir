@@ -377,20 +377,22 @@ bool Manager::persist() const{
 }
 
 void Manager::lockKnobs() const{
-    if(!_p.knobCoresEnabled){
-        _configuration->getKnob(KNOB_VIRTUAL_CORES)->lockToMax();
-    }
-    if(!_p.knobMappingEnabled){
-        _configuration->getKnob(KNOB_MAPPING)->lock(MAPPING_TYPE_LINEAR);
-    }
-    if(!_p.knobFrequencyEnabled){
-        _configuration->getKnob(KNOB_FREQUENCY)->lockToMax();
-    }
-    if(!_p.knobHyperthreadingEnabled){
-        _configuration->getKnob(KNOB_HYPERTHREADING)->lock(_p.knobHyperthreadingFixedValue);
-    }
-    if(!_p.knobClkModEnabled){
-        _configuration->getKnob(KNOB_CLKMOD)->lockToMax();
+    if(_p.requirements.anySpecified()){
+        if(!_p.knobCoresEnabled){
+            _configuration->getKnob(KNOB_VIRTUAL_CORES)->lockToMax();
+        }
+        if(!_p.knobMappingEnabled){
+            _configuration->getKnob(KNOB_MAPPING)->lock(MAPPING_TYPE_LINEAR);
+        }
+        if(!_p.knobFrequencyEnabled){
+            _configuration->getKnob(KNOB_FREQUENCY)->lockToMax();
+        }
+        if(!_p.knobHyperthreadingEnabled){
+            _configuration->getKnob(KNOB_HYPERTHREADING)->lock(_p.knobHyperthreadingFixedValue);
+        }
+        if(!_p.knobClkModEnabled){
+            _configuration->getKnob(KNOB_CLKMOD)->lockToMax();
+        }
     }
 }
 
@@ -519,6 +521,10 @@ void Manager::observe(){
 }
 
 void Manager::decideAndAct(bool force){
+    if(!_p.requirements.anySpecified()){
+        return;
+    }
+
     KnobsValues kv;
     if(!_configuration->knobsChangeNeeded()){
         kv = _configuration->getRealValues();

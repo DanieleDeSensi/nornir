@@ -89,6 +89,17 @@ public:
     explicit Instrumenter(const std::string& parametersFile,
                           size_t numThreads = 1,
                           riff::Aggregator* aggregator = NULL);
+
+    /**
+     * This function can be used to dynamically change the user requirements
+     * while the application is running. If this function is used, the
+     * storeCustomValue MUST NOT be used by the user. Moreover, aggregator MUST NOT
+     * be specified when constructing the instrumenter.
+     * This function must be called after the end() function.
+     * @param type The type of requirement.
+     * @param value The value of the requirement.
+     */
+    void changeRequirement(RequirementType type, double value);
 };
 
 /**

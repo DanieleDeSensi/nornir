@@ -302,7 +302,7 @@ void Parameters::setDefault(){
 
     if(!found){
         throw runtime_error("Impossible to find configuration files. Please run "
-                            "'make microbench' from the nornir root folder.");
+                            "'make microbench' from the nornir build folder.");
     }
 }
 

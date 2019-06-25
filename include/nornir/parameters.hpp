@@ -482,6 +482,19 @@ typedef struct ArchData{
     void loadXml(const std::string& archFileName);
 }ArchData;
 
+// TODO: Requirements structure should just be an array of doubles, indexed by RequirementType (?)
+typedef enum{
+  REQUIREMENT_THROUGHPUT = 0,
+  REQUIREMENT_POWER,
+  REQUIREMENT_UTILIZATION_MIN,
+  REQUIREMENT_UTILIZATION_MAX,
+  REQUIREMENT_EXECUTION_TIME,
+  REQUIREMENT_LATENCY,
+  REQUIREMENT_ENERGY,
+  REQUIREMENT_TASKS_NUMBER, // Not truly a requirement
+  REQUIREMENT_NUM // This must be the last value
+}RequirementType;
+
 /*!
  * \class Requirements
  * \brief This class contains the requirements specified by the user.

@@ -45,6 +45,9 @@
 #include <iostream>
 #include <fstream>
 #include <stdlib.h>
+#include <type_traits>
+
+static_assert(nornir::REQUIREMENT_NUM <= RIFF_MAX_CUSTOM_FIELDS, "Please increase RIFF_MAX_CUSTOM_FIELDS");
 
 #undef DEBUG
 #undef DEBUGB
@@ -135,6 +138,10 @@ Instrumenter::Instrumenter(const std::string& parametersFile,
                            riff::Aggregator *aggregator):
         InstrumenterHelper(getChannel(parametersFile), numThreads, aggregator){
     ;
+}
+
+void Instrumenter::changeRequirement(RequirementType type, double value){
+  storeCustomValue(static_cast<size_t>(type), value, 0);
 }
 
 }

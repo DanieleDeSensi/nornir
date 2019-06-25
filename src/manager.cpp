@@ -417,7 +417,7 @@ Selector* Manager::createSelector() const{
                 return new SelectorAnalytical(_p, *_configuration, _samples);
             }break;
             case STRATEGY_SELECTION_ANALYTICAL_FULL:{
-               return new SelectorAnalyticalFull(_p, *_configuration, _samples);
+                return new SelectorAnalyticalFull(_p, *_configuration, _samples);
             }break;
             case STRATEGY_SELECTION_LEARNING:{
                 return new SelectorLearner(_p, *_configuration, _samples);
@@ -651,6 +651,40 @@ MonitoredSample ManagerInstrumented::getSample(){
                                      "to fix this issue.");
         }
     }
+
+    // Get dynamic user requirements
+    if(sample.customFields[REQUIREMENT_THROUGHPUT]){
+      _p.requirements.throughput = sample.customFields[REQUIREMENT_THROUGHPUT];
+    }
+
+    if(sample.customFields[REQUIREMENT_ENERGY]){
+      _p.requirements.energy = sample.customFields[REQUIREMENT_ENERGY];
+    }
+
+    if(sample.customFields[REQUIREMENT_EXECUTION_TIME]){
+      _p.requirements.executionTime = sample.customFields[REQUIREMENT_EXECUTION_TIME];
+    }
+
+    if(sample.customFields[REQUIREMENT_LATENCY]){
+      _p.requirements.latency = sample.customFields[REQUIREMENT_LATENCY];
+    }
+
+    if(sample.customFields[REQUIREMENT_POWER]){
+      _p.requirements.powerConsumption = sample.customFields[REQUIREMENT_POWER];
+    }
+
+    if(sample.customFields[REQUIREMENT_TASKS_NUMBER]){
+      _p.requirements.expectedTasksNumber = sample.customFields[REQUIREMENT_TASKS_NUMBER];
+    }
+
+    if(sample.customFields[REQUIREMENT_UTILIZATION_MAX]){
+      _p.requirements.maxUtilization = sample.customFields[REQUIREMENT_UTILIZATION_MAX];
+    }
+
+    if(sample.customFields[REQUIREMENT_UTILIZATION_MIN]){
+      _p.requirements.minUtilization = sample.customFields[REQUIREMENT_UTILIZATION_MIN];
+    }
+
     return sample;
 }
 

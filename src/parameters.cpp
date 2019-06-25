@@ -207,6 +207,7 @@ Requirements::Requirements(){
     minUtilization = NORNIR_REQUIREMENT_UNDEF;
     maxUtilization = NORNIR_REQUIREMENT_UNDEF;
     executionTime = NORNIR_REQUIREMENT_UNDEF;
+    energy = NORNIR_REQUIREMENT_UNDEF;
     expectedTasksNumber = NORNIR_REQUIREMENT_UNDEF;
     latency = NORNIR_REQUIREMENT_UNDEF;
 }
@@ -217,6 +218,7 @@ bool Requirements::anySpecified() const{
            minUtilization != NORNIR_REQUIREMENT_UNDEF ||
            maxUtilization != NORNIR_REQUIREMENT_UNDEF ||
            executionTime != NORNIR_REQUIREMENT_UNDEF ||
+           energy != NORNIR_REQUIREMENT_UNDEF ||
            latency != NORNIR_REQUIREMENT_UNDEF;
 }
 
@@ -493,6 +495,11 @@ ParametersValidation Parameters::validateRequirements(){
        requirements.executionTime < 0){
         return VALIDATION_WRONG_REQUIREMENT;
     }
+    if(requirements.energy != NORNIR_REQUIREMENT_UNDEF &&
+       requirements.energy != NORNIR_REQUIREMENT_MIN &&
+       requirements.energy < 0){
+        return VALIDATION_WRONG_REQUIREMENT;
+    }
     if(requirements.powerConsumption != NORNIR_REQUIREMENT_UNDEF &&
        requirements.powerConsumption != NORNIR_REQUIREMENT_MIN &&
        requirements.powerConsumption < 0){
@@ -503,7 +510,7 @@ ParametersValidation Parameters::validateRequirements(){
        requirements.latency < 0){
         return VALIDATION_WRONG_REQUIREMENT;
     }
-    if(requirements.executionTime != NORNIR_REQUIREMENT_UNDEF &&
+    if((requirements.executionTime != NORNIR_REQUIREMENT_UNDEF || requirements.energy != NORNIR_REQUIREMENT_UNDEF) &&
        requirements.expectedTasksNumber == NORNIR_REQUIREMENT_UNDEF){
         return VALIDATION_WRONG_REQUIREMENT;
     }
@@ -512,6 +519,11 @@ ParametersValidation Parameters::validateRequirements(){
            strategySelection == STRATEGY_SELECTION_LIMARTINEZ){
             return VALIDATION_WRONG_REQUIREMENT;
         }
+    }
+    // Energy is for the moment supported only by ANALYTICAL_FULL
+    if(requirements.energy != NORNIR_REQUIREMENT_UNDEF &&
+       strategySelection != STRATEGY_SELECTION_ANALYTICAL_FULL){
+      return VALIDATION_WRONG_REQUIREMENT;
     }
     if(maxCalibrationTime == 0 && maxCalibrationSteps &&
        (maxPerformancePredictionError <= 0      ||
@@ -526,6 +538,9 @@ ParametersValidation Parameters::validateRequirements(){
         ++maxMinRequirements;
     }
     if(requirements.executionTime == NORNIR_REQUIREMENT_MIN){
+        ++maxMinRequirements;
+    }
+    if(requirements.energy == NORNIR_REQUIREMENT_MIN){
         ++maxMinRequirements;
     }
     if(requirements.latency == NORNIR_REQUIREMENT_MIN){
@@ -570,14 +585,14 @@ ParametersValidation Parameters::validateSelector(){
     knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL][KNOB_FREQUENCY] = true;
     knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL][KNOB_MAPPING] = false;
     knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL][KNOB_HYPERTHREADING] = false;
-    knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL][KNOB_CLKMOD] = false;
+    knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL][KNOB_CLKMOD] = true;
 
     // ANALYTICAL_FULL
     knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_VIRTUAL_CORES] = true;
     knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_FREQUENCY] = true;
     knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_MAPPING] = false;
     knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_HYPERTHREADING] = false;
-    knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_CLKMOD] = false;
+    knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_CLKMOD] = true;
 
     // FULLSEARCH
     knobsSupportSelector[STRATEGY_SELECTION_FULLSEARCH][KNOB_VIRTUAL_CORES] = true;
@@ -810,6 +825,7 @@ void Parameters::loadXml(const string& paramFileName){
     SETVALUE(xt, Double, requirements.maxUtilization);
     SETVALUE(xt, Double, requirements.expectedTasksNumber);
     SETVALUE(xt, DoubleOrMin, requirements.executionTime);
+    SETVALUE(xt, DoubleOrMin, requirements.energy);
     SETVALUE(xt, DoubleOrMin, requirements.latency);
 
     SETVALUE(xt, Enum, strategyUnusedVirtualCores);
@@ -946,4 +962,3 @@ bool isPrimaryRequirement(double r){
 }
 
 }
-

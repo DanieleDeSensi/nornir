@@ -62,6 +62,7 @@ protected:
     bool _calibrationCoordination;
     bool _calibrationAllowed;
     u_int64_t _totalTasks;
+    uint64_t _remainingTasks;
 
     /**
      * Checks if the throughput respects the required contract.
@@ -83,6 +84,20 @@ protected:
      * @param conservative If true applies the conservativeValue.
      */
     bool isFeasiblePower(double value, bool conservative) const;
+
+    /**
+     * Checks if the execution time respects the required contract.
+     * @param value The value to be checked.
+     * @param conservative If true applies the conservativeValue.
+     */
+    bool isFeasibleTime(double value, bool conservative) const;
+
+    /**
+     * Checks if the energy respects the required contract.
+     * @param value The value to be checked.
+     * @param conservative If true applies the conservativeValue.
+     */
+    bool isFeasibleEnergy(double value, bool conservative) const;
 
     /**
      * Checks if the utilization respects the required contract.
@@ -296,7 +311,7 @@ private:
      * @return true if it was a better value (best is modified).
      */
     bool isBestMinMax(double throughput, double latency, double utilization,
-                      double power, double& best);
+                      double power, double time, double energy, double& best);
 
     /**
      * Checks if the specified value to control
@@ -310,7 +325,7 @@ private:
      * @return true if it was a better value (best is modified).
      */
     bool isBestSuboptimal(double throughput, double latency, double utilization,
-                          double power, double& best);
+                          double power, double time, double energy, double& best);
 protected:
     double _throughputPrediction;
     double _powerPrediction;

@@ -894,10 +894,10 @@ PredictorAnalytical::PredictorAnalytical(PredictorType type,
 }
 
 double PredictorAnalytical::getScalingFactor(const KnobsValues& values){
-    double usedVirtualCores = values[KNOB_VIRTUAL_CORES];
-    return (double)(values[KNOB_FREQUENCY] * usedVirtualCores) /
-           (double)(_configuration.getRealValue(KNOB_FREQUENCY) *
-                    _configuration.getRealValue(KNOB_VIRTUAL_CORES));
+    double ratioCores     = values[KNOB_VIRTUAL_CORES] / _configuration.getRealValue(KNOB_VIRTUAL_CORES);
+    double ratioClkMod    = values[KNOB_CLKMOD]        / _configuration.getRealValue(KNOB_CLKMOD);
+    double ratioFrequency = values[KNOB_FREQUENCY]     / _configuration.getRealValue(KNOB_FREQUENCY);
+    return ratioCores * ratioFrequency * ratioClkMod;
 }
 
 double PredictorAnalytical::getPowerPrediction(const KnobsValues& values){
@@ -975,8 +975,6 @@ double PredictorAnalyticalFull::predict(const KnobsValues& values){
     }
     return 0.0;
 }
-
-
 
 PredictorLeo::PredictorLeo(PredictorType type,
               const Parameters &p,

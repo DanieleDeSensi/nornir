@@ -499,12 +499,12 @@ typedef struct Requirements{
     // [default = unused].
     double powerConsumption;
 
-    // The underload threshold for the entire farm.
+    // The underload threshold for the entire application.
     // It must be in [0, 100].
     // [default = unused].
     double minUtilization;
 
-    // The overload threshold for the entire farm.
+    // The overload threshold for the entire application.
     // It must be in [0, 100].
     // [default = unused].
     double maxUtilization;
@@ -520,6 +520,9 @@ typedef struct Requirements{
     // It must be greater or equal than 0.
     // NOT AVAILABLE AT THE MOMENT.
     double latency;
+
+    // The required energy (in joules) [default = unused].
+    double energy;
 
     // The number of task expected for this computation.
     // [default = unused].

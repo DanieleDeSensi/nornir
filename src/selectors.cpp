@@ -73,7 +73,8 @@ Selector::Selector(const Parameters& p,
         _forcedReturned(false),
         _calibrationCoordination(false),
         _calibrationAllowed(false),
-        _totalTasks(0){
+        _totalTasks(0),
+        _remainingTasks(p.requirements.expectedTasksNumber){
     _joulesCounter = _localMammut.getInstanceEnergy()->getCounter();
     _numPhyCores = _p.mammut.getInstanceTopology()->getPhysicalCores().size();    
     //TODO Fare meglio con mammut
@@ -136,13 +137,41 @@ bool Selector::isFeasiblePower(double value, bool conservative) const{
     return true;
 }
 
+bool Selector::isFeasibleTime(double value, bool conservative) const{
+    if(isPrimaryRequirement(_p.requirements.executionTime)){
+        double conservativeOffset = 0;
+        if(conservative && _p.conservativeValue){
+            conservativeOffset = _p.requirements.executionTime *
+                                 (_p.conservativeValue / 100.0);
+        }
+        return value < _p.requirements.executionTime - conservativeOffset;
+    }
+    return true;
+}
+
+bool Selector::isFeasibleEnergy(double value, bool conservative) const{
+    if(isPrimaryRequirement(_p.requirements.energy)){
+        double conservativeOffset = 0;
+        if(conservative && _p.conservativeValue){
+            conservativeOffset = _p.requirements.energy *
+                                 (_p.conservativeValue / 100.0);
+        }
+        return value < _p.requirements.energy - conservativeOffset;
+    }
+    return true;
+}
+
 bool Selector::isContractViolated() const{
     if(_ignoreViolations){return false;}
     MonitoredSample avg = _samples->average();
+    double avgTime = avg.throughput * _remainingTasks;
+    double avgEnergy = avgTime * avg.watts;
     return !isFeasibleThroughput(avg.throughput, false) ||
            !isFeasibleLatency(avg.latency, false)     ||
            !isFeasibleUtilization(avg.loadPercentage, false) ||
-           !isFeasiblePower(avg.watts, false);
+           !isFeasiblePower(avg.watts, false) ||
+           !isFeasibleTime(avgTime, false) ||
+           !isFeasibleEnergy(avgEnergy, false);
 }
 
 void Selector::startCalibration(){
@@ -219,6 +248,7 @@ void Selector::forceConfiguration(KnobsValues& kv){
 
 void Selector::updateTotalTasks(u_int64_t totalTasks){
     _totalTasks = totalTasks;
+    _remainingTasks = _p.requirements.expectedTasksNumber - totalTasks;
 }
 
 void Selector::updateBandwidthIn(){
@@ -457,7 +487,7 @@ const std::map<KnobsValues, double>& SelectorPredictive::getSecondaryPredictions
 }
 
 bool SelectorPredictive::isBestMinMax(double throughput, double latency, double utilization,
-                                double power, double& best){
+                                      double power, double time, double energy, double& best){
     // Throughput maximization
     if(_p.requirements.throughput == NORNIR_REQUIREMENT_MAX){
         if(throughput > best){
@@ -501,12 +531,22 @@ bool SelectorPredictive::isBestMinMax(double throughput, double latency, double 
         }
     }
 
+    // Energy minimization
+    if(_p.requirements.energy == NORNIR_REQUIREMENT_MIN){
+        if(energy < best){
+            best = energy;
+            return true;
+        }else{
+            return false;
+        }
+    }
     // If no MIN/MAX requirements, return true.
     return true;
 }
 
 bool SelectorPredictive::isBestSuboptimal(double throughput, double latency,
                                           double utilization, double power,
+                                          double time, double energy,
                                           double& best){
     // Throughput requirement
     if(isPrimaryRequirement(_p.requirements.throughput)){
@@ -550,6 +590,14 @@ bool SelectorPredictive::isBestSuboptimal(double throughput, double latency,
         }
     }
 
+    // Energy requirement
+    if(isPrimaryRequirement(_p.requirements.energy)){
+        if(energy < best){
+            best = energy;
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -589,11 +637,15 @@ KnobsValues SelectorPredictive::getBestKnobsValues(){
         double powerPrediction = getPowerPrediction(currentValues);
         double utilizationPrediction = _bandwidthIn->average() /
                                        throughputPrediction * 100.0;
+        double timePrediction = throughputPrediction * _remainingTasks;
+        double energyPrediction = timePrediction * powerPrediction;
 
         // Skip negative predictions
         if(throughputPrediction < 0 ||
            powerPrediction < 0 ||
-           utilizationPrediction < 0){
+           utilizationPrediction < 0 ||
+           timePrediction < 0 ||
+           energyPrediction < 0){
             continue;
         }
 
@@ -611,10 +663,12 @@ KnobsValues SelectorPredictive::getBestKnobsValues(){
         if(isFeasibleThroughput(throughputPrediction, true) &&
            isFeasibleLatency(0, true) &&
            isFeasibleUtilization(utilizationPrediction, true) &&
-           isFeasiblePower(powerPrediction, true)){
+           isFeasiblePower(powerPrediction, true) &&
+           isFeasibleTime(timePrediction, true) &&
+           isFeasibleEnergy(energyPrediction, true)){
             _feasible = true;
             if(isBestMinMax(throughputPrediction, 0, utilizationPrediction,
-                            powerPrediction, bestValue) ||
+                            powerPrediction, timePrediction, energyPrediction, bestValue) ||
                !bestKnobsSet){
 #ifdef DEBUG_SELECTORS
                 bestThroughputPrediction = throughputPrediction;
@@ -624,7 +678,8 @@ KnobsValues SelectorPredictive::getBestKnobsValues(){
                 bestKnobsSet = true;
             }
         }else if(isBestSuboptimal(throughputPrediction, 0, utilizationPrediction,
-                                  powerPrediction, bestSuboptimalValue)){
+                                  powerPrediction, timePrediction, energyPrediction,
+                                  bestSuboptimalValue)){
             // TODO In realta' per controllare se e' un sottoottimale
             // migliore bisognerebbe prendere la configurazione che soddisfa
             // il maggior numero di constraints fra quelli specificati.

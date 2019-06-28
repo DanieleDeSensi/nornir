@@ -47,7 +47,7 @@ ExternalProject_Add(mammut_repo
 
 ExternalProject_Add(riff_repo
     GIT_REPOSITORY https://github.com/danieledesensi/riff
-    GIT_TAG 9010e45
+    GIT_TAG 250c7f5
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     UPDATE_COMMAND ""
 )

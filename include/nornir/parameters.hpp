@@ -55,6 +55,10 @@
  * - PPAM2019:
  *         strategySelection = STRATEGY_SELECTION_ANALYTICAL_FULL
  *         knobMappingEnabled = false
+ *
+ * - AutoDaSP2019:
+ *         strategySelection = STRATEGY_SELECTION_ANALYTICAL_FULL
+ *         knobMappingEnabled = false    
  */
 
 
@@ -957,6 +961,10 @@ public:
     // The loggers objects. They will be called every samplingInterval
     // milliseconds to monitor the application [default = NULL].
     std::vector<Logger*> loggers;
+
+    // If true, the PID of the manager process will be prepended to the
+    // log filename(s).
+    bool perPidLog;
 
     /**
      * Creates the nornir paramters.

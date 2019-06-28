@@ -108,7 +108,17 @@ std::pair<nn::socket*, uint> Instrumenter::connectPidChannel(const std::string& 
     return std::pair<nn::socket*, uint>(channel, chid);
 }
 
-std::pair<nn::socket*, uint> Instrumenter::getChannel(const std::string& parametersFile) const{
+std::pair<nn::socket*, uint> Instrumenter::getChannel(const std::string& parametersFile, bool startServer) const{
+    if(startServer){
+        pid_t serverPid = fork();
+        if(!serverPid){
+            nornir::InstrumenterServer* is = new nornir::InstrumenterServer(true);
+            is->start();
+            is->join();
+            exit(0);
+        }
+    }
+
     /** Send pid, then switch to the pid channel. */
     nn::socket mainChannel(AF_SP, NN_PAIR);
     int mainChid;
@@ -135,9 +145,9 @@ std::pair<nn::socket*, uint> Instrumenter::getChannel(const std::string& paramet
 
 Instrumenter::Instrumenter(const std::string& parametersFile,
                            size_t numThreads,
-                           riff::Aggregator *aggregator):
-        InstrumenterHelper(getChannel(parametersFile), numThreads, aggregator){
-    ;
+                           riff::Aggregator *aggregator,
+                           bool startServer):
+    InstrumenterHelper(getChannel(parametersFile, startServer), numThreads, aggregator){
 }
 
 void Instrumenter::changeRequirement(RequirementType type, double value){
@@ -277,7 +287,6 @@ void InstrumenterServer::run(){
         DEBUG("ManagerMulti started.");
     }
     */
-
     while(true){
         pid_t pid;
         size_t r = mainChannel.recv(&pid, sizeof(pid), 0);
@@ -305,15 +314,30 @@ void InstrumenterServer::run(){
         r = ai->channel.recv(parameters, length*sizeof(char), 0);
         assert(r == (sizeof(char)*length));
         std::string parametersString(parameters);
-        std::ofstream out("parameters.xml");
+
+        // Make a tmp directory and dump parameters in a file to let the Parameters struct load them
+        char templatedir[] = "/tmp/nornirextparams.XXXXXX";
+        char *dir_name = mkdtemp(templatedir);
+        if(dir_name == NULL){
+            throw std::runtime_error("mkdtemp failed");
+        }
+        std::string tmpParamFileName = std::string(dir_name) + std::string("/") + std::string("parameters.xml");
+
+        std::ofstream out(tmpParamFileName);
         out << parametersString;
         out.close();
         delete[] parameters;
         DEBUG("Validating parameters");
         //TODO: If we will let this work for remote machines too, we will need
         // to also send archfile.xml
-        Parameters p("parameters.xml");
+        Parameters p(tmpParamFileName);
         ParametersValidation pv = p.validate();
+        // Delete the file and tmp directory
+        remove(tmpParamFileName.c_str());
+        if(rmdir(dir_name) == -1){
+            throw std::runtime_error("rmdir failed");
+        }
+
         DEBUG("Sending validation result.");
         r = ai->channel.send(&pv, sizeof(pv), 0);
         assert(r == sizeof(pv));
@@ -344,7 +368,7 @@ void InstrumenterServer::run(){
         }
         managerCleanup(m, instances);
         if(_singleClient){
-        	break;
+            break;
         }
     }
     mainChannel.shutdown(mainChid);

@@ -722,6 +722,7 @@ KnobClkMod::KnobClkMod(Parameters p, const KnobMapping& knobMapping):_knobMappin
     for(double d : p.mammut.getInstanceTopology()->getCpus().front()->getClockModulationValues()){
         _knobValues.push_back(d);
     }
+    _realValue = 100.0;
 }
 
 void KnobClkMod::changeValue(double v){

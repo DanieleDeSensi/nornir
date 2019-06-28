@@ -203,6 +203,15 @@ public:
  */
 class LoggerFile: public LoggerStream{
 public:
+    LoggerFile(std::string prefix = "",
+               std::string folder = ".",
+               unsigned int timeOffset = 0):
+        LoggerStream(new std::ofstream(folder + std::string("/") + prefix + "stats.csv"),
+                     new std::ofstream(folder + std::string("/") + prefix + "calibration.csv"),
+                     new std::ofstream(folder + std::string("/") + prefix + "summary.csv"),
+                     timeOffset){;}
+
+    /*
     LoggerFile(std::string statsFile = "stats.csv",
                std::string calibrationFile = "calibration.csv",
                std::string summaryFile = "summary.csv",
@@ -211,6 +220,7 @@ public:
                      new std::ofstream(calibrationFile),
                      new std::ofstream(summaryFile),
                      timeOffset){;}
+    */
 
     ~LoggerFile(){
         dynamic_cast<std::ofstream*>(_statsStream)->close();

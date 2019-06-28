@@ -268,6 +268,7 @@ void Parameters::setDefault(){
     conservativeValue = 0;
     isolateManager = false;
     statsReconfiguration = false;
+    perPidLog = false;
     roiFile = "";
 
     leo.applicationName = "";
@@ -522,7 +523,8 @@ ParametersValidation Parameters::validateRequirements(){
     }
     // Energy is for the moment supported only by ANALYTICAL_FULL
     if(requirements.energy != NORNIR_REQUIREMENT_UNDEF &&
-       strategySelection != STRATEGY_SELECTION_ANALYTICAL_FULL){
+       strategySelection != STRATEGY_SELECTION_ANALYTICAL_FULL &&
+       strategySelection != STRATEGY_SELECTION_LEARNING){
       return VALIDATION_WRONG_REQUIREMENT;
     }
     if(maxCalibrationTime == 0 && maxCalibrationSteps &&
@@ -875,6 +877,7 @@ void Parameters::loadXml(const string& paramFileName){
     SETVALUE(xt, ArrayUint, disallowedNumCores);
     SETVALUE(xt, Bool, isolateManager);
     SETVALUE(xt, Bool, statsReconfiguration);
+    SETVALUE(xt, Bool, perPidLog);
     SETVALUE(xt, String, roiFile);
     SETVALUE(xt, ArrayEnums, loggersTypes);
     //xt.getArrayEnums<LoggerType>("loggersTypes", loggersTypes);

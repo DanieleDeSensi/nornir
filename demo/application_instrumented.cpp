@@ -44,7 +44,7 @@
  * Instrumented code is:
  */
 int main(int argc, char** argv){
-    nornir::Instrumenter instr("parameters.xml");
+    nornir::Instrumenter instr("parameters.xml", 1, NULL, true);
     size_t i = 0;
     while(i++ < 10){
         instr.begin();

@@ -59,7 +59,7 @@ static inline void init(){
         const char* parameters_file = getenv("NORNIR_OMP_PARAMETERS");
         nornir::Instrumenter* tmpinstr = NULL;
         if(parameters_file){
-            tmpinstr = new nornir::Instrumenter(std::string(parameters_file), omp_get_num_threads());
+            tmpinstr = new nornir::Instrumenter(std::string(parameters_file), omp_get_num_threads(), NULL, true);
             riff::ApplicationConfiguration ac;
             ac.samplingLengthMs = 0;
             ac.consistencyThreshold = std::numeric_limits<double>::max();
@@ -181,14 +181,6 @@ ompt_start_tool_result_t* ompt_start_tool(
     static double time = 0;
     time = omp_get_wtime();
     static ompt_start_tool_result_t ompt_start_tool_result = {&ompt_initialize,&ompt_finalize,{.ptr=&time}};
-
-    pid_t serverPid = fork();
-    if(!serverPid){
-      is = new nornir::InstrumenterServer(true);
-      is->start();
-      is->join();
-      exit(0);
-    }
 
     return &ompt_start_tool_result;
 }

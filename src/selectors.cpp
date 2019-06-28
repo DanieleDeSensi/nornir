@@ -37,6 +37,8 @@
 #undef DEBUG
 #undef DEBUGB
 
+#define DEBUG_SELECTORS
+
 #ifdef DEBUG_SELECTORS
 #define DEBUG(x) do { std::cerr << "[Selectors] " << x << std::endl; } while (0)
 #define DEBUGB(x) do {x;} while (0)
@@ -164,7 +166,7 @@ bool Selector::isFeasibleEnergy(double value, bool conservative) const{
 bool Selector::isContractViolated() const{
     if(_ignoreViolations){return false;}
     MonitoredSample avg = _samples->average();
-    double avgTime = avg.throughput * _remainingTasks;
+    double avgTime = _remainingTasks / avg.throughput;
     double avgEnergy = avgTime * avg.watts;
     return !isFeasibleThroughput(avg.throughput, false) ||
            !isFeasibleLatency(avg.latency, false)     ||
@@ -637,7 +639,7 @@ KnobsValues SelectorPredictive::getBestKnobsValues(){
         double powerPrediction = getPowerPrediction(currentValues);
         double utilizationPrediction = _bandwidthIn->average() /
                                        throughputPrediction * 100.0;
-        double timePrediction = throughputPrediction * _remainingTasks;
+        double timePrediction = _remainingTasks / throughputPrediction;
         double energyPrediction = timePrediction * powerPrediction;
 
         // Skip negative predictions
@@ -658,7 +660,8 @@ KnobsValues SelectorPredictive::getBestKnobsValues(){
 #if 1
         DEBUG("Prediction: " << currentValues << " "
                              << throughputPrediction << " "
-                             << powerPrediction);
+                             << powerPrediction << " "
+                             << energyPrediction);
 #endif
         if(isFeasibleThroughput(throughputPrediction, true) &&
            isFeasibleLatency(0, true) &&

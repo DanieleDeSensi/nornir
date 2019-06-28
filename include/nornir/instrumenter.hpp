@@ -28,7 +28,8 @@
 #ifndef NORNIR_INSTRUMENTER_HPP_
 #define NORNIR_INSTRUMENTER_HPP_
 
-#include "utils.hpp"
+#include <nornir/utils.hpp>
+#include <nornir/parameters.hpp>
 #include <riff/riff.hpp>
 #include <riff/external/cppnanomsg/nn.hpp>
 #include <riff/external/nanomsg/src/pair.h>
@@ -74,7 +75,7 @@ public:
  */
 class Instrumenter: public InstrumenterHelper{
 private:
-    std::pair<nn::socket*, uint> getChannel(const std::string& parametersFile) const;
+    std::pair<nn::socket*, uint> getChannel(const std::string& parametersFile, bool startServer) const;
     std::pair<nn::socket*, uint> connectPidChannel(const std::string& parametersFile, uint pid) const;
 public:
     /**
@@ -88,7 +89,8 @@ public:
      */
     explicit Instrumenter(const std::string& parametersFile,
                           size_t numThreads = 1,
-                          riff::Aggregator* aggregator = NULL);
+                          riff::Aggregator* aggregator = NULL,
+                          bool startServer = false);
 
     /**
      * This function can be used to dynamically change the user requirements

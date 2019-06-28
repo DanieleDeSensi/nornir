@@ -83,7 +83,7 @@ LoggerStream::LoggerStream(std::ostream *statsStream,
     *_statsStream << "Workers" << "\t";
     *_statsStream << "HT" << "\t";
     *_statsStream << "Frequency" << "\t";
-    *_statsStream << "ClkModEmulated" << "\t";
+    *_statsStream << "ClockModulation" << "\t";
     *_statsStream << "CurrentThroughput" << "\t";
     *_statsStream << "SmoothedThroughput" << "\t";
     *_statsStream << "CoeffVarThroughput" << "\t";

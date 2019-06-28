@@ -107,7 +107,13 @@ Manager::Manager(Parameters nornirParameters):
     for(LoggerType lt : _p.loggersTypes){
         switch(lt){
         case LOGGER_FILE:{
-            _p.loggers.push_back(new LoggerFile());
+            LoggerFile* lf;
+            if(_p.perPidLog){                
+                lf = new LoggerFile(mammut::utils::intToString(getpid()) + "_");
+            }else{
+                lf = new LoggerFile();
+            }
+            _p.loggers.push_back(lf);
         }break;
         case LOGGER_GRAPHITE:{
             // TODO passare comeparametro url e porta

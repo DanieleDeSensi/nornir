@@ -37,6 +37,8 @@ extern "C"{
 #include <nornir/graphite-client.h>
 }
 
+#include <iomanip>
+
 namespace nornir{
 
 using namespace std;

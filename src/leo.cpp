@@ -4,6 +4,7 @@
  * Energy Under Performance Constraints" by Mishra, Nikita and Zhang, Huazhe and Lafferty, John D. and Hoffmann, Henry.
  **/
 
+#ifdef ENABLE_ARMADILLO
 #include <nornir/leo.h>
 
 using namespace std;
@@ -249,4 +250,6 @@ int main(int argc, char** argv){
     pr = leo::compute(appId, powerFile, &sampledPower, false, true);
     std::cout << pr.accuracy << std::endl;
 }
+#endif
+
 #endif

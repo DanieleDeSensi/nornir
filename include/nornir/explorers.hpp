@@ -29,7 +29,9 @@
 #define NORNIR_EXPLORERS_HPP_
 
 #include "configuration.hpp"
+#ifdef ENABLE_GSL
 #include <gsl/gsl_qrng.h>
+#endif
 
 namespace nornir{
 
@@ -71,6 +73,7 @@ public:
     KnobsValues nextRelativeKnobsValues() const;
 };
 
+#ifdef ENABLE_GSL
 /**
  * Explorer that selects the configuration by using a low discrepancy
  * generator.
@@ -96,6 +99,7 @@ public:
     void reset();
     KnobsValues nextRelativeKnobsValues() const;
 };
+#endif
 
 /**
  * Explorer to be used when building multiple models together

@@ -37,8 +37,11 @@
 
 #include <mammut/mammut.hpp>
 
+#ifdef ENABLE_GSL
 #include <gsl/gsl_multifit.h>
+#endif
 
+#ifdef ENABLE_MLPACK
 // Needed because someone defined bitset as a macro and collides with boost bitset definition (used by mlpack)
 #ifdef bitset
 #undef bitset
@@ -49,7 +52,11 @@
 #include <mlpack/core.hpp>
 #include <mlpack/methods/linear_regression/linear_regression.hpp>
 //POP_WARNING
+#endif
+
+#ifdef ENABLE_ARMADILLO
 #include <nornir/leo.h> // Must be included after mlpack
+#endif
 
 #include <map>
 
@@ -57,6 +64,7 @@ namespace nornir{
 
 class KnobsValues;
 
+#ifdef ENABLE_MLPACK
 /**
  * Represents a sample to be used in the regression.
  */
@@ -162,7 +170,7 @@ public:
      */
     bool getInactivePowerPosition(size_t& pos) const;
 };
-
+#endif
 
 /**
  * Type of predictor.
@@ -236,7 +244,7 @@ public:
     double getModelError(){return _modelError;}
 };
 
-
+#ifdef ENABLE_MLPACK
 typedef struct{
     RegressionData* data;
     double response;
@@ -289,6 +297,7 @@ public:
 
     double getInactivePowerParameter() const;
 };
+#endif
 
 /**
  * A regression predictor for <Cores, Frequency, Mapping> configurations.
@@ -357,6 +366,7 @@ typedef enum{
     RECONFARG_N2,
 }RecordInterferenceArgument;
 
+#ifdef ENABLE_GSL
 class PredictorUsl: public Predictor{
 private:
     double _maxPolDegree;
@@ -424,6 +434,7 @@ public:
      */
     void updateCoefficients();
 };
+#endif
 
 /*
  * Represents a simple predictor. It works only for application that
@@ -477,6 +488,7 @@ public:
 };
 
 
+#ifdef ENABLE_ARMADILLO
 /**
  * Applies the algorithm described in:
  * "A Probabilistic Graphical Model-based Approach for Minimizing
@@ -508,6 +520,7 @@ public:
 
     double predict(const KnobsValues& realValues);
 };
+#endif
 
 /**
  * Applies a full search strategy in order to find
@@ -536,6 +549,7 @@ public:
     double predict(const KnobsValues& realValues);
 };
 
+#ifdef ENABLE_MLPACK
 /**
 * @brief The PredictoSMT class
 */
@@ -606,6 +620,7 @@ public:
 	 */
 	double predict(const KnobsValues& realValues);
 };
+#endif
 
 }
 

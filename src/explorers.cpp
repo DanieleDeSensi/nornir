@@ -81,7 +81,7 @@ namespace nornir{
     }
 
     void ExplorerRandom::reset(){;}
-
+#ifdef ENABLE_GSL
     ExplorerLowDiscrepancy::ExplorerLowDiscrepancy(
                 std::vector<bool> knobs,
                 StrategyExploration explorationStrategy,
@@ -152,6 +152,7 @@ namespace nornir{
     void ExplorerLowDiscrepancy::reset(){
         gsl_qrng_init(_generator);
     }
+#endif
 
     ExplorerMultiple::ExplorerMultiple(std::vector<bool> knobs,
                                        Explorer* explorer,

@@ -890,25 +890,41 @@ std::unique_ptr<Predictor> SelectorLearner::getPredictor(PredictorType type,
         case PREDICTION_THROUGHPUT:{
             switch(p.strategyPredictionPerformance){
                 case STRATEGY_PREDICTION_PERFORMANCE_AMDAHL:{
+#ifdef ENABLE_MLPACK
                     if(p.knobMappingEnabled){
                         predictor = new PredictorRegressionMapping<PredictorLinearRegression>(type, p, configuration, samples);
                     }else{
                         predictor = new PredictorLinearRegression(type, p, configuration, samples);
                     }
+#else
+                    throw std::runtime_error("Please recompile with -DENABLE_MLPACK=ON to use the required predictor.");
+#endif
                 }break;
                 case STRATEGY_PREDICTION_PERFORMANCE_USL:
                 case STRATEGY_PREDICTION_PERFORMANCE_USLP:{
+#ifdef ENABLE_GSL
                     if(p.knobMappingEnabled){
                         predictor = new PredictorRegressionMapping<PredictorUsl>(type, p, configuration, samples);
                     }else{
                         predictor = new PredictorUsl(type, p, configuration, samples);
                     }
+#else
+                    throw std::runtime_error("Please recompile with -DENABLE_GSL=ON to use the required predictor.");
+#endif
                 }break;
                 case STRATEGY_PREDICTION_PERFORMANCE_LEO:{
+#ifdef ENABLE_ARMADILLO
                     predictor = new PredictorLeo(type, p, configuration, samples);
+#else
+              throw std::runtime_error("Please recompile with -DENABLE_ARMADILLO=ON to use the required predictor.");
+#endif
                 }break;
                 case STRATEGY_PREDICTION_PERFORMANCE_SMT:{
+#ifdef ENABLE_MLPACK
                     predictor = new PredictorSMT(type, p, configuration, samples);
+#else
+                    throw std::runtime_error("Please recompile with -DENABLE_MLPACK=ON to use the required predictor.");
+#endif
                 }break;
                 default:{
                     throw std::runtime_error("Unknown prediction strategy.");
@@ -918,17 +934,29 @@ std::unique_ptr<Predictor> SelectorLearner::getPredictor(PredictorType type,
         case PREDICTION_POWER:{
             switch(p.strategyPredictionPower){
                 case STRATEGY_PREDICTION_POWER_LINEAR:{
+#ifdef ENABLE_MLPACK
                     if(p.knobMappingEnabled){
                         predictor = new PredictorRegressionMapping<PredictorLinearRegression>(type, p, configuration, samples);
                     }else{
                         predictor = new PredictorLinearRegression(type, p, configuration, samples);
                     }
+#else
+                    throw std::runtime_error("Please recompile with -DENABLE_MLPACK=ON to use the required predictor.");
+#endif
                 }break;
                 case STRATEGY_PREDICTION_POWER_LEO:{
+#ifdef ENABLE_ARMADILLO
                     predictor = new PredictorLeo(type, p, configuration, samples);
+#else
+                    throw std::runtime_error("Please recompile with -DENABLE_ARMADILLO=ON to use the required predictor.");
+#endif
                 }break;
                 case STRATEGY_PREDICTION_POWER_SMT:{
+#ifdef ENABLE_GSL
                     predictor = new PredictorSMT(type, p, configuration, samples);
+#else
+                    throw std::runtime_error("Please recompile with -DENABLE_GSL=ON to use the required predictor.");
+#endif
                 }break;
                 default:{
                     throw std::runtime_error("Unknown prediction strategy.");
@@ -1025,12 +1053,14 @@ SelectorLearner::SelectorLearner(const Parameters& p,
         case STRATEGY_EXPLORATION_RANDOM:{
             _explorer = new ExplorerRandom(knobsFlags, additionalPoints);
         }break;
+#ifdef ENABLE_GSL
         case STRATEGY_EXPLORATION_HALTON:
         case STRATEGY_EXPLORATION_HALTON_REVERSE:
         case STRATEGY_EXPLORATION_NIEDERREITER:
         case STRATEGY_EXPLORATION_SOBOL:{
             _explorer = new ExplorerLowDiscrepancy(knobsFlags, _p.strategyExploration, additionalPoints);
         }break;
+#endif
         default:{
             throw std::runtime_error("Unknown exploration strategy.");
         }
@@ -1054,6 +1084,7 @@ SelectorLearner::~SelectorLearner(){
 KnobsValues SelectorLearner::getNextKnobsValues(){
     KnobsValues kv;
     if(_updatingInterference){
+#ifdef ENABLE_GSL
         // It can only be done for PERF_* contract (so is primary) and on USL predictors.
         // (Check already done when the flag is set).
         PredictorUsl* pred = dynamic_cast<PredictorUsl*>(getPrimaryPredictor());
@@ -1067,6 +1098,7 @@ KnobsValues SelectorLearner::getNextKnobsValues(){
             pred->updateCoefficients();
             return _beforeInterferenceConf;
         }
+#endif
     }
     _previousConfiguration = _configuration.getRealValues();
     if(_forced && !_forcedReturned){
@@ -1263,6 +1295,7 @@ KnobsValues SelectorFixedExploration::getNextKnobsValues(){
     }
 }
 
+#ifdef ENABLE_ARMADILLO
 SelectorLeo::SelectorLeo(const Parameters& p,
                const Configuration& configuration,
                const Smoother<MonitoredSample>* samples):
@@ -1276,6 +1309,7 @@ SelectorLeo::SelectorLeo(const Parameters& p,
 SelectorLeo::~SelectorLeo(){
     ;
 }
+#endif
 
 SelectorFullSearch::SelectorFullSearch(const Parameters& p,
                const Configuration& configuration,

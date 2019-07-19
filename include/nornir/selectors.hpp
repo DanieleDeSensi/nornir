@@ -547,6 +547,7 @@ public:
     KnobsValues getNextKnobsValues();
 };
 
+#ifdef ENABLE_ARMADILLO
 /**
  * Applies the algorithm described in:
  * "A Probabilistic Graphical Model-based Approach for Minimizing
@@ -561,6 +562,7 @@ public:
 
     ~SelectorLeo();
 };
+#endif
 
 /**
  * This selector does a full exploration of the search space.

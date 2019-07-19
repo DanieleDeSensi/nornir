@@ -53,9 +53,10 @@ using namespace mammut::cpufreq;
 using namespace mammut::utils;
 using namespace mammut::topology;
 
+#ifdef ENABLE_MLPACK
 using namespace mlpack::regression;
-
 using namespace arma;
+#endif
 
 using namespace std;
 
@@ -74,6 +75,7 @@ static double getVoltage(const VoltageTable& table, uint workers, Frequency freq
     }
 }
 
+#ifdef ENABLE_MLPACK
 RegressionData::RegressionData(const Parameters &p,
                                const Configuration &configuration,
                                const Smoother<MonitoredSample>* samples):
@@ -152,6 +154,7 @@ void RegressionDataServiceTime::toArmaRow(size_t columnId, arma::mat& matrix) co
         matrix(rowId++, columnId) = _invScalFactorSpeedAndCores;
     }
 }
+#endif
 
 static void getStaticDynamicPower(double usedPhysicalCores, Frequency frequency,
                                   MappingType mt, double clkMod,
@@ -219,6 +222,7 @@ static void getStaticDynamicPower(double usedPhysicalCores, Frequency frequency,
     }
 }
 
+#ifdef ENABLE_MLPACK
 void RegressionDataPower::init(const KnobsValues& values){
     assert(values.areReal());
     _numPredictors = 0;
@@ -322,6 +326,7 @@ bool RegressionDataPower::getInactivePowerPosition(size_t& pos) const{
         return false;
     }
 }
+#endif
 
 Predictor::Predictor(PredictorType type,
                      const Parameters &p,
@@ -349,6 +354,7 @@ double Predictor::getCurrentPower() const{
     return _samples->average().watts;
 }
 
+#ifdef ENABLE_MLPACK
 PredictorLinearRegression::PredictorLinearRegression(PredictorType type,
                                                      const Parameters& p,
                                                      const Configuration& configuration,
@@ -565,7 +571,9 @@ double PredictorLinearRegression::getInactivePowerParameter() const{
         throw std::runtime_error("getInactivePowerParameter can only be called on POWER predictors.");
     }
 }
+#endif
 
+#ifdef ENABLE_GSL
 /**************** PredictorUSL ****************/
 PredictorUsl::PredictorUsl(PredictorType type,
              const Parameters &p,
@@ -873,6 +881,7 @@ double PredictorUsl::getLambda(RecordInterferenceArgument n) const{
     }
     return getb()*(numCores - 1) + geta()*(numCores - 1)*(numCores - 1);
 }
+#endif
 
 /**************** PredictorSimple ****************/
 
@@ -976,6 +985,7 @@ double PredictorAnalyticalFull::predict(const KnobsValues& values){
     return 0.0;
 }
 
+#ifdef ENABLE_ARMADILLO
 PredictorLeo::PredictorLeo(PredictorType type,
               const Parameters &p,
               const Configuration &configuration,
@@ -1088,6 +1098,7 @@ double PredictorLeo::predict(const KnobsValues& realValues){
     }
     return _predictions.at(confId);
 }
+#endif
 
 PredictorFullSearch::PredictorFullSearch(PredictorType type,
           const Parameters &p,
@@ -1138,6 +1149,7 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
     return _values.at(realValues);
 }
 
+#ifdef ENABLE_MLPACK
 	/**************** PredictorSMT****************/
 
 	PredictorSMT::PredictorSMT(PredictorType type,
@@ -1394,6 +1406,6 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
 	PredictorSMT::~PredictorSMT() {
 		clear();
 	}
-
+#endif
 }
 

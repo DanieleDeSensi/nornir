@@ -152,6 +152,9 @@ protected:
     // Flag indicating if the execution must be simulated.
     bool _toSimulate;
 
+    // Flag indicating if the underlying hardware is an Heterogeneous Multiprocessor
+    bool _isHMP;
+
     // Samples to be used for simulation.
     std::list<MonitoredSample> _simulationSamples;
 

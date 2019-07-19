@@ -214,7 +214,8 @@ class KnobMapping: public Knob{
 public:
     KnobMapping(const Parameters& p,
                 const KnobVirtualCores& knobCores,
-                const KnobHyperThreading& knobHyperThreading);
+                const KnobHyperThreading& knobHyperThreading,
+                int cpuId = -1);
     void changeValue(double v);
 
     virtual void move(const std::vector<mammut::topology::VirtualCore*>& vcOrder) = 0;
@@ -238,6 +239,7 @@ private:
     std::vector<mammut::topology::VirtualCore*> _unusedVirtualCores;
     mammut::topology::Topology* _topologyHandler;
     std::vector<mammut::topology::VirtualCore*> _allowedVirtualCores;
+    const int _cpuId;
 
     std::vector<mammut::topology::VirtualCore*> computeVcOrderLinear();
     std::vector<mammut::topology::VirtualCore*> computeVcOrderInterleaved();
@@ -248,8 +250,9 @@ private:
     mammut::task::ProcessHandler* _processHandler;
 public:
     KnobMappingExternal(const Parameters& p,
-                const KnobVirtualCores& knobCores,
-                const KnobHyperThreading& knobHyperThreading);
+                        const KnobVirtualCores& knobCores,
+                        const KnobHyperThreading& knobHyperThreading,
+                        int cpuId = -1);
 
     void setPid(pid_t pid);
     void setProcessHandler(mammut::task::ProcessHandler* processHandler);
@@ -267,14 +270,15 @@ public:
                 const KnobVirtualCoresFarm& knobCores,
                 const KnobHyperThreading& knobHyperThreading,
                 AdaptiveNode* emitter,
-                AdaptiveNode* collector);
+                AdaptiveNode* collector,
+                int cpuId = -1);
 
     void move(const std::vector<mammut::topology::VirtualCore*>& vcOrder);
 };
 
 class KnobFrequency: public Knob{
 public:
-    KnobFrequency(Parameters p, const KnobMapping& knobMapping);
+    KnobFrequency(Parameters p, const KnobMapping& knobMapping, int cpuId = 0);
     ~KnobFrequency();
     void changeValue(double v);
 private:
@@ -326,7 +330,7 @@ private:
     KnobValueType _type;
     double _values[KNOB_NUM];
 public:
-    inline void reset(){
+    virtual  void reset(){
         for(size_t i = 0; i < KNOB_NUM; i++){
             _values[i] = 0;
         }
@@ -336,36 +340,36 @@ public:
         reset();
     }
 
-    void swap(KnobsValues& x){
+    virtual void swap(KnobsValues& x){
         using std::swap;
 
         swap(_type, x._type);
         swap(_values, x._values);
     }
 
-    inline KnobsValues(const KnobsValues& other){
+    KnobsValues(const KnobsValues& other){
         _type = other._type;
         for(size_t i = 0; i < KNOB_NUM; i++){
             _values[i] = other._values[i];
         }
     }
 
-    inline KnobsValues& operator=(KnobsValues other){
+    virtual  KnobsValues& operator=(KnobsValues other){
         swap(other);
         return *this;
     }
 
-    inline bool areUndefined() const{return _type == KNOB_VALUE_UNDEF;}
+    virtual  bool areUndefined() const{return _type == KNOB_VALUE_UNDEF;}
 
-    inline bool areRelative() const{return _type == KNOB_VALUE_RELATIVE;}
+    virtual  bool areRelative() const{return _type == KNOB_VALUE_RELATIVE;}
 
-    inline bool areReal() const{return _type == KNOB_VALUE_REAL;}
+    virtual  bool areReal() const{return _type == KNOB_VALUE_REAL;}
 
-    inline double& operator[](KnobType idx){
+    virtual double& operator[](KnobType idx){
         return _values[idx];
     }
 
-    inline double operator[](KnobType idx) const{
+    virtual double operator[](KnobType idx) const{
         return _values[idx];
     }
 };
@@ -434,6 +438,67 @@ inline bool operator>=(const KnobsValues& lhs,
                        const KnobsValues& rhs){
     return !operator< (lhs,rhs);
 }
+
+class KnobsValuesHMP{
+private:
+    std::vector<KnobsValues> _values;
+public:
+    virtual  void reset(){
+        for(auto& k : _values){
+            k.reset();
+        }
+    }
+
+    explicit KnobsValuesHMP(uint HMPDomains, KnobValueType type = KNOB_VALUE_UNDEF){
+        for(size_t i = 0; i < HMPDomains; i++){
+          _values.push_back(KnobsValues(type));
+        }
+        reset();
+    }
+
+    virtual void swap(KnobsValuesHMP& x){
+        using std::swap;
+        swap(_values, x._values);
+    }
+
+    KnobsValuesHMP(const KnobsValuesHMP& other){
+        _values = other._values;
+    }
+
+    virtual  KnobsValuesHMP& operator=(KnobsValuesHMP other){
+        swap(other);
+        return *this;
+    }
+
+    virtual  bool areUndefined() const{
+      return _values[0].areUndefined();
+    }
+
+    virtual  bool areRelative() const{
+      return _values[0].areRelative();
+    }
+
+    virtual  bool areReal() const{
+      return _values[0].areReal();
+    }
+
+    inline KnobsValues& operator[](size_t idx){
+        return _values[idx];
+    }
+
+    inline KnobsValues operator[](size_t idx) const{
+        return _values[idx];
+    }
+
+    virtual double& operator[](KnobType idx){
+        throw std::runtime_error("KnobsValuesHMP: Unimplemented method.");
+    }
+
+    virtual double operator[](KnobType idx) const{
+        throw std::runtime_error("KnobsValuesHMP: Unimplemented method.");
+    }
+
+};
 
 }
 

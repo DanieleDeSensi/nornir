@@ -379,11 +379,13 @@ void KnobHyperThreading::changeValue(double v){;}
 
 KnobMapping::KnobMapping(const Parameters& p,
                          const KnobVirtualCores& knobCores,
-                         const KnobHyperThreading& knobHyperThreading):
+                         const KnobHyperThreading& knobHyperThreading,
+                         int cpuId):
          _p(p),
          _knobCores(knobCores),
          _knobHyperThreading(knobHyperThreading),
-         _topologyHandler(p.mammut.getInstanceTopology()){
+         _topologyHandler(p.mammut.getInstanceTopology()),
+         _cpuId(cpuId){
     for(size_t i = 0; i < MAPPING_TYPE_NUM; i++){
         _knobValues.push_back((MappingType) i);
     }
@@ -472,6 +474,9 @@ vector<VirtualCore*> KnobMapping::computeVcOrderLinear(){
     vector<Cpu*> cpus = _topologyHandler->getCpus();
     for(size_t k = 0; k < virtualPerPhysical; k++){
         for(size_t i = 0; i < cpus.size(); i++){
+            if(_cpuId != -1 && (int) i != _cpuId){
+              continue;
+            }
             vector<PhysicalCore*> phyCores = cpus.at(i)->getPhysicalCores();
             for(size_t j = 0; j < phyCores.size(); j++){
                 vector<VirtualCore*> virtCores = phyCores.at(j)->getVirtualCores();
@@ -500,6 +505,9 @@ vector<VirtualCore*> KnobMapping::computeVcOrderInterleaved(){
     for(size_t k = 0; k < virtualPerPhysical; k++){
         for(size_t j = 0; j < physicalPerCpu; j++){
             for(size_t i = 0; i < cpus.size(); i++){
+                if(_cpuId != -1 && (int) i != _cpuId){
+                  continue;
+                }
                 vector<PhysicalCore*> phyCores = cpus.at(i)->getPhysicalCores();
                 vector<VirtualCore*> virtCores = phyCores.at(j)->getVirtualCores();
                 if((!_p.isolateManager || virtCores.at(k)->getVirtualCoreId() != NORNIR_MANAGER_VIRTUAL_CORE) &&
@@ -517,8 +525,8 @@ vector<VirtualCore*> KnobMapping::computeVcOrderInterleaved(){
 
 KnobMappingExternal::KnobMappingExternal(const Parameters& p,
             const KnobVirtualCores& knobCores,
-            const KnobHyperThreading& knobHyperThreading):
-        KnobMapping(p, knobCores, knobHyperThreading), _processHandler(NULL){
+            const KnobHyperThreading& knobHyperThreading, int cpuId):
+        KnobMapping(p, knobCores, knobHyperThreading, cpuId), _processHandler(NULL){
     ;
 }
 
@@ -546,8 +554,8 @@ KnobMappingFarm::KnobMappingFarm(const Parameters& p,
             const KnobVirtualCoresFarm& knobCores,
             const KnobHyperThreading& knobHyperThreading,
             AdaptiveNode* emitter,
-            AdaptiveNode* collector):
-        KnobMapping(p, knobCores, knobHyperThreading), _emitter(emitter),
+            AdaptiveNode* collector, int cpuId):
+        KnobMapping(p, knobCores, knobHyperThreading, cpuId), _emitter(emitter),
         _collector(collector){
     ;
 }
@@ -592,14 +600,14 @@ void KnobMappingFarm::move(const vector<VirtualCore*>& vcOrder){
     }
 }
 
-KnobFrequency::KnobFrequency(Parameters p, const KnobMapping& knobMapping):
+KnobFrequency::KnobFrequency(Parameters p, const KnobMapping& knobMapping, int cpuId):
         _p(p),
         _knobMapping(knobMapping),
         _frequencyHandler(_p.mammut.getInstanceCpuFreq()),
         _topologyHandler(_p.mammut.getInstanceTopology()){
     _frequencyHandler->removeTurboFrequencies();
     std::vector<mammut::cpufreq::Frequency> availableFrequencies;
-    availableFrequencies = _frequencyHandler->getDomains().at(0)->getAvailableFrequencies();
+    availableFrequencies = _frequencyHandler->getDomains().at(cpuId)->getAvailableFrequencies();
 
     if(_p.knobFrequencyEnabled){
         if(availableFrequencies.empty()){

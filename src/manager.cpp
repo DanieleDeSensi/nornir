@@ -129,19 +129,29 @@ Manager::Manager(Parameters nornirParameters):
     _topology = _p.mammut.getInstanceTopology(); 
     _cpufreq = _p.mammut.getInstanceCpuFreq();
     if(!_toSimulate){
-        // We cannot create energy and task modules
-        // since they are not simulated by mammut
-        _counter = _p.mammut.getInstanceEnergy()->getCounter(COUNTER_CPUS);
-	if(!_counter){
-	  _counter = _p.mammut.getInstanceEnergy()->getCounter(COUNTER_PLUG);	  
-	}
-        _task = _p.mammut.getInstanceTask();
+      // We cannot create energy and task modules
+      // since they are not simulated by mammut
+      _counter = _p.mammut.getInstanceEnergy()->getCounter(COUNTER_CPUS);
+      if(!_counter){
+        _counter = _p.mammut.getInstanceEnergy()->getCounter(COUNTER_PLUG);
+      }
+      _task = _p.mammut.getInstanceTask();
     }
     DEBUG("Mammut handlers created.");
 
     _topologyRollbackPoint = _topology->getRollbackPoint();
     if(_p.knobFrequencyEnabled){
         _cpufreqRollbackPoint = _cpufreq->getRollbackPoint();
+    }
+
+    mammut::cpufreq::Frequency lastFreq = 0;
+    for(auto d : _cpufreq->getDomains()){
+      mammut::cpufreq::Frequency hFreq = d->getAvailableFrequencies().back();
+      if(lastFreq != 0 && hFreq != lastFreq){
+        _isHMP = true;
+        break;
+      }
+      lastFreq = hFreq;
     }
 }
 

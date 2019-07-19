@@ -142,7 +142,7 @@ public:
      * Sets values for the knobs (may be relative or real).
      * @param values The values of the knobs.
      */
-    void setValues(const KnobsValues& values);
+    virtual void setValues(const KnobsValues& values);
 
     /**
      * Triggers the triggers.
@@ -162,7 +162,7 @@ public:
 
 class ConfigurationExternal: public Configuration{
 public:
-    explicit ConfigurationExternal(const Parameters& p);
+    explicit ConfigurationExternal(const Parameters& p, uint cpuId = -1);
 };
 
 class ConfigurationFarm: public Configuration{
@@ -182,6 +182,21 @@ public:
                       Smoother<MonitoredSample> const* samples,
                       std::vector<KnobVirtualCoresFarm*> farms,
                       std::vector<std::vector<double>> allowedValues);
+};
+
+class ConfigurationHMP: public Configuration{
+protected:
+    std::vector<Configuration*> _configurations;
+    uint _HMPDomains;
+public:
+    explicit ConfigurationHMP(const Parameters& p, uint HMPDomains);
+    virtual void setValues(const KnobsValues& values);
+    // TODO Implement missing functions
+};
+
+class ConfigurationHMPExternal: public ConfigurationHMP{
+public:
+    explicit ConfigurationHMPExternal(const Parameters& p, uint HMPDomains);
 };
 
 }

@@ -241,15 +241,17 @@ void Configuration::trigger(){
 }
 
 
-ConfigurationExternal::ConfigurationExternal(const Parameters& p):
+ConfigurationExternal::ConfigurationExternal(const Parameters& p, uint cpuId):
         Configuration(p){
     _knobs[KNOB_VIRTUAL_CORES] = new KnobVirtualCores(p);
     _knobs[KNOB_HYPERTHREADING] = new KnobHyperThreading(p);
     _knobs[KNOB_MAPPING] = new KnobMappingExternal(p,
                                                 *dynamic_cast<KnobVirtualCores*>(_knobs[KNOB_VIRTUAL_CORES]),
-                                                *dynamic_cast<KnobHyperThreading*>(_knobs[KNOB_HYPERTHREADING]));
+                                                *dynamic_cast<KnobHyperThreading*>(_knobs[KNOB_HYPERTHREADING]),
+                                                   cpuId);
     _knobs[KNOB_FREQUENCY] = new KnobFrequency(p,
-                                               *dynamic_cast<KnobMappingExternal*>(_knobs[KNOB_MAPPING]));
+                                               *dynamic_cast<KnobMappingExternal*>(_knobs[KNOB_MAPPING]),
+                                               cpuId);
     if(p.clockModulationEmulated){
         _knobs[KNOB_CLKMOD] = new KnobClkModEmulated(p);
     }else{
@@ -315,6 +317,24 @@ ConfigurationPipe::ConfigurationPipe(const Parameters& p,
     }
 
     _triggers[TRIGGER_TYPE_Q_BLOCKING] = NULL;
+}
+
+ConfigurationHMP::ConfigurationHMP(const Parameters& p, uint HMPDomains):
+  Configuration(p), _HMPDomains(HMPDomains){
+  ;
+}
+
+void ConfigurationHMP::setValues(const KnobsValues& values){
+  const KnobsValuesHMP& kv = dynamic_cast<const KnobsValuesHMP&>(values);
+  for(uint i = 0; i < _HMPDomains; i++){
+    _configurations[i]->setValues(kv[i]);
+  }
+}
+
+ConfigurationHMPExternal::ConfigurationHMPExternal(const Parameters& p, uint HMPDomains):ConfigurationHMP(p, HMPDomains){
+  for(size_t i = 0; i < _HMPDomains; i++){
+    _configurations.push_back(new ConfigurationExternal(p, i));
+  }
 }
 
 }

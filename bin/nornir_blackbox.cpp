@@ -1,5 +1,5 @@
 /*
- * manager-single.cpp
+ * nornir_blackbox.cpp
  *
  * Monitors and adapt an external application by using the riff library.
  * Needs the explicit channel name. This is deprecated. Use manager-external.

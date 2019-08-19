@@ -58,17 +58,17 @@ static pair<std::string, char** const> getArgs(char* cmd){
 
 int main(int argc, char * argv[]) {
     char* command = NULL;
-    if(argc != 2) {
+    if(argc != 3) {
         cerr << "use: " 
              << argv[0] 
-             << " command" << endl;
+             << " command configFile" << endl;
         return -1;
     }   
     command = argv[1];
     pid_t pid = fork();
 
     if(pid){
-        Parameters p("parameters.xml");
+        Parameters p(argv[2]);
         ManagerBlackBox m(pid, p);
         m.start();
         waitpid(pid, NULL, 0);

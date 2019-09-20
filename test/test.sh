@@ -14,7 +14,7 @@ fi
 
 mkdir -p ${BINARY_DIR}/test/mammut-test/archs/
 
-rm -rf ${BINARY_DIR}/test/mammut-test/archs/* && tar -xf ${BINARY_DIR}/src/mammut_repo-prefix/src/mammut_repo/test/archs/repara.tar.gz -C ${BINARY_DIR}/test/mammut-test/archs/
+rm -rf ${BINARY_DIR}/test/mammut-test/archs/* && tar -xf ${BINARY_DIR}/src/mammut_repo-prefix/src/mammut_repo/test/archs/repara.tar.gz -C ${BINARY_DIR}/test/mammut-test/archs/ && tar -xf ${BINARY_DIR}/src/mammut_repo-prefix/src/mammut_repo/test/archs/c8.tar.gz -C ${BINARY_DIR}/test/mammut-test/archs/
 ${TEST}
 
 

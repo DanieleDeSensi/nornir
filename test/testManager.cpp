@@ -76,7 +76,7 @@ size_t getPosition(const string& fieldName, const string& headerLine){
  */
 TEST(ManagerTest, GlobalTest) {
     // Stored samples were taken with 4 custom fileds.
-    EXPECT_EQ(RIFF_MAX_CUSTOM_FIELDS, 4);
+    EXPECT_EQ(RIFF_MAX_CUSTOM_FIELDS, 8);
     for(string arch : getTestingArchitectures()){ // For all architectures
         for(string bench : getBenchmarks(arch)){ // For all benchmarks
             for(string testcase : getTestCases(arch, bench)){ // And for all testcases on that benchmark

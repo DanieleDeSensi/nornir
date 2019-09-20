@@ -145,10 +145,11 @@ Manager::Manager(Parameters nornirParameters):
     }
 
     mammut::cpufreq::Frequency lastFreq = 0;
+    _numHMP = 1;
     for(auto d : _cpufreq->getDomains()){
       mammut::cpufreq::Frequency hFreq = d->getAvailableFrequencies().back();
       if(lastFreq != 0 && hFreq != lastFreq){
-        _isHMP = true;
+        _numHMP = _topology->getCpus().size();
         break;
       }
       lastFreq = hFreq;
@@ -253,93 +254,6 @@ void Manager::terminate(){
     _terminated = true;
 }
 
-void Manager::inhibit(){
-    _inhibited = true;
-}
-
-void Manager::disinhibit(){
-    _inhibited = false;
-}
-
-void Manager::shrink(CalibrationShrink type){
-    switch(type){
-        case CALIBRATION_SHRINK_AGGREGATE:{
-            if(_pid){
-                _task->getProcessHandler(_pid)->move(_topology->getVirtualCores().back());
-            }
-        }break;
-        case CALIBRATION_SHRINK_PAUSE:{
-            shrinkPause();
-        }break;
-        default:{
-            ;
-        }break;
-    }
-}
-
-void Manager::stretch(CalibrationShrink type){
-    switch(type){
-        case CALIBRATION_SHRINK_AGGREGATE:{
-            if(_pid){
-                std::vector<VirtualCore*> allowedCores = dynamic_cast<KnobMapping*>(_configuration->getKnob(KNOB_MAPPING))->getAllowedCores();
-                _task->getProcessHandler(_pid)->move(allowedCores);
-            }
-        }break;
-        case CALIBRATION_SHRINK_PAUSE:{
-            stretchPause();
-        }break;
-        default:{
-            ;
-        }break;
-    }
-}
-
-void Manager::updateModelsInterference(){
-    if(_p.strategySelection != STRATEGY_SELECTION_LEARNING){
-        throw std::runtime_error("updateModelsInterference can only be "
-                "used on LEARNING selectors.");
-    }
-    // Temporarely disinhibit.
-    _samples->reset();
-    disinhibit();
-    dynamic_cast<SelectorLearner*>(_selector)->updateModelsInterference();
-}
-
-void Manager::waitModelsInterferenceUpdate(){
-    if(_p.strategySelection != STRATEGY_SELECTION_LEARNING){
-        throw std::runtime_error("waitModelsInterferenceUpdate can only be "
-                        "used on LEARNING selectors.");
-    }
-    while(!dynamic_cast<SelectorLearner*>(_selector)->areModelsUpdated() && !_terminated){
-        // If in the meanwhile the selector is waiting for calibration,
-        // allow him to calibrate.
-        if(_selector->isCalibrating()){
-           _selector->allowCalibration();
-        }
-    }
-    // Inhibit again.
-    inhibit();
-}
-
-std::vector<VirtualCoreId> Manager::getUsedCores(){
-    while(_selector->isCalibrating() || _selector->getTotalCalibrationTime() == 0){;}
-    vector<VirtualCore*> vc = dynamic_cast<KnobMapping*>(_configuration->getKnob(KNOB_MAPPING))->getActiveVirtualCores();
-    vector<VirtualCoreId> vcid;
-    for(VirtualCore* v : vc){
-        vcid.push_back(v->getVirtualCoreId());
-    }
-    return vcid;
-}
-
-void Manager::allowCores(std::vector<mammut::topology::VirtualCoreId> ids){
-    vector<VirtualCore*> allowedVc;
-    for(auto id : ids){
-        allowedVc.push_back(_topology->getVirtualCore(id));
-    }
-    dynamic_cast<KnobVirtualCores*>(_configuration->getKnob(KNOB_VIRTUAL_CORES))->changeMax(ids.size() - _configuration->getNumServiceNodes());
-    dynamic_cast<KnobMapping*>(_configuration->getKnob(KNOB_MAPPING))->setAllowedCores(allowedVc);
-}
-
 void Manager::setSimulationParameters(std::string samplesFileName){
     _toSimulate = true;
     std::ifstream file(samplesFileName);
@@ -394,21 +308,23 @@ bool Manager::persist() const{
 
 void Manager::lockKnobs() const{
     if(_p.requirements.anySpecified()){
+      for(size_t c = 0; c < _numHMP; c++){
         if(!_p.knobCoresEnabled){
-            _configuration->getKnob(KNOB_VIRTUAL_CORES)->lockToMax();
+            _configuration->getKnob(c, KNOB_VIRTUAL_CORES)->lockToMax();
         }
         if(!_p.knobMappingEnabled){
-            _configuration->getKnob(KNOB_MAPPING)->lock(MAPPING_TYPE_LINEAR);
+            _configuration->getKnob(c, KNOB_MAPPING)->lock(MAPPING_TYPE_LINEAR);
         }
         if(!_p.knobFrequencyEnabled){
-            _configuration->getKnob(KNOB_FREQUENCY)->lockToMax();
+            _configuration->getKnob(c, KNOB_FREQUENCY)->lockToMax();
         }
         if(!_p.knobHyperthreadingEnabled){
-            _configuration->getKnob(KNOB_HYPERTHREADING)->lock(_p.knobHyperthreadingFixedValue);
+            _configuration->getKnob(c, KNOB_HYPERTHREADING)->lock(_p.knobHyperthreadingFixedValue);
         }
         if(!_p.knobClkModEnabled){
-            _configuration->getKnob(KNOB_CLKMOD)->lockToMax();
+            _configuration->getKnob(c, KNOB_CLKMOD)->lockToMax();
         }
+      }
     }
 }
 
@@ -488,7 +404,7 @@ void Manager::observe(){
     Joules joules = 0.0;
     MonitoredSample sample;
     bool store = true;
-    if(_toSimulate){
+    if(_toSimulate){   
         if(_simulationSamples.empty()){
             return;
         }else{
@@ -516,16 +432,21 @@ void Manager::observe(){
             sample.watts = joules / durationSecs;
 
             if(_p.synchronousWorkers){
+                size_t numWorkers = 0;
+                for(size_t c = 0; c < _numHMP; c++){
+                  numWorkers += _configuration->getKnob(c, KNOB_VIRTUAL_CORES)->getRealValue();
+                }
+
                 // When we have synchronous workers we need to divide
                 // for the number of workers since we do it for the totalTasks
                 // count. When this flag is set we count iterations, not real
                 // tasks.
-                sample.throughput /= _configuration->getKnob(KNOB_VIRTUAL_CORES)->getRealValue();
+                sample.throughput /= numWorkers;
                 // When we have synchronous workers we need to count the iterations,
                 // not the real tasks (indeed in this case each worker will receive
                 // the same amount of tasks, e.g. in canneal) since they are sent in
                 // broadcast.
-                sample.numTasks /= _configuration->getKnob(KNOB_VIRTUAL_CORES)->getRealValue();
+                sample.numTasks /= numWorkers;
             }
         }
     }
@@ -609,7 +530,7 @@ ManagerInstrumented::ManagerInstrumented(const std::string& riffChannel,
                                  Parameters nornirParameters):
         Manager(nornirParameters), _monitor(riffChannel){
     DEBUG("Creating configuration.");
-    Manager::_configuration = new ConfigurationExternal(_p);
+    Manager::_configuration = new ConfigurationExternal(_p, _numHMP);
     DEBUG("Configuration created.");
     // For instrumented application we do not care if synchronous of not
     // (we count iterations).
@@ -620,7 +541,7 @@ ManagerInstrumented::ManagerInstrumented(nn::socket& riffSocket,
                                  int chid,
                                  Parameters nornirParameters):
             Manager(nornirParameters), _monitor(riffSocket, chid){
-    Manager::_configuration = new ConfigurationExternal(_p);
+    Manager::_configuration = new ConfigurationExternal(_p, _numHMP);
     // For instrumented application we do not care if synchronous of not (we
     // count iterations).
     _p.synchronousWorkers = false;
@@ -637,12 +558,14 @@ ManagerInstrumented::~ManagerInstrumented(){
 
 void ManagerInstrumented::waitForStart(){
     Manager::_pid = _monitor.waitStart();
-    if(_monitor.getTotalThreads()){
-        dynamic_cast<KnobVirtualCores*>(_configuration->getKnob(KNOB_VIRTUAL_CORES))->changeMax(_monitor.getTotalThreads());
-    }
-    dynamic_cast<KnobMappingExternal*>(_configuration->getKnob(KNOB_MAPPING))->setPid(_pid);
-    if(_p.clockModulationEmulated){
-        dynamic_cast<KnobClkModEmulated*>(_configuration->getKnob(KNOB_CLKMOD))->setPid(_pid);
+    for(size_t c = 0; c < _numHMP; c++){
+      if(_monitor.getTotalThreads()){
+          dynamic_cast<KnobVirtualCores*>(_configuration->getKnob(c, KNOB_VIRTUAL_CORES))->changeMax(_monitor.getTotalThreads());
+      }
+      dynamic_cast<KnobMappingExternal*>(_configuration->getKnob(c, KNOB_MAPPING))->setPid(_pid);
+      if(_p.clockModulationEmulated){
+          dynamic_cast<KnobClkModEmulated*>(_configuration->getKnob(c, KNOB_CLKMOD))->setPid(_pid);
+      }
     }
 }
 
@@ -725,18 +648,10 @@ void ManagerInstrumented::terminationManagement(){
     _totalTasks = _monitor.getTotalTasks();
 }
 
-void ManagerInstrumented::shrinkPause(){
-    kill(_pid, SIGSTOP);
-}
-
-void ManagerInstrumented::stretchPause(){
-    kill(_pid, SIGCONT);
-}
-
 ManagerBlackBox::ManagerBlackBox(pid_t pid, Parameters nornirParameters):
         Manager(nornirParameters), _process(nornirParameters.mammut.getInstanceTask()->getProcessHandler(pid)){
     Manager::_pid = pid;
-    Manager::_configuration = new ConfigurationExternal(_p);
+    Manager::_configuration = new ConfigurationExternal(_p, _numHMP);
     // For blackbox application we do not care if synchronous of not
     // (we count instructions).
     _p.synchronousWorkers = false;
@@ -774,9 +689,11 @@ void ManagerBlackBox::waitForStart(){
         }
     }
     _startTime = getMillisecondsTime();
-    dynamic_cast<KnobMappingExternal*>(_configuration->getKnob(KNOB_MAPPING))->setPid(_process->getId());
-    if(_p.clockModulationEmulated){
-        dynamic_cast<KnobClkModEmulated*>(_configuration->getKnob(KNOB_CLKMOD))->setPid(_process->getId());
+    for(size_t c = 0; c < _numHMP; c++){
+      dynamic_cast<KnobMappingExternal*>(_configuration->getKnob(c, KNOB_MAPPING))->setPid(_process->getId());
+      if(_p.clockModulationEmulated){
+          dynamic_cast<KnobClkModEmulated*>(_configuration->getKnob(c, KNOB_CLKMOD))->setPid(_process->getId());
+      }
     }
     _process->resetInstructions(); // To remove those executed before entering ROI
 }
@@ -803,16 +720,6 @@ MonitoredSample ManagerBlackBox::getSample(){
 
 ulong ManagerBlackBox::getExecutionTime(){
     return getMillisecondsTime() - _startTime;
-}
-
-void ManagerBlackBox::shrinkPause(){
-    pid_t pid = _process->getId();
-    kill(pid, SIGSTOP);
-}
-
-void ManagerBlackBox::stretchPause(){
-    pid_t pid = _process->getId();
-    kill(pid, SIGCONT);
 }
 
 void initNodesPreRun(Parameters p,
@@ -903,7 +810,7 @@ ManagerFastFlow::ManagerFastFlow(ff_farm<>* farm,
     Manager::_configuration = new ConfigurationFarm(_p, _samples, _emitter,
                                                    _activeWorkers,
                                                    _collector, _farm->getgt(),
-                                                   &_terminated);
+                                                   &_terminated, _numHMP);
 }
 
 ManagerFastFlow::~ManagerFastFlow(){
@@ -918,8 +825,12 @@ ManagerFastFlow::~ManagerFastFlow(){
 }
 
 void ManagerFastFlow::postConfigurationManagement(){
-    const KnobVirtualCoresFarm* knobWorkers = dynamic_cast<const KnobVirtualCoresFarm*>(_configuration->getKnob(KNOB_VIRTUAL_CORES));
-    std::vector<AdaptiveNode*> newWorkers = knobWorkers->getActiveWorkers();
+    std::vector<AdaptiveNode*> newWorkers;
+    for(size_t c = 0; c < _numHMP; c++){
+      const KnobVirtualCoresFarm* knobWorkers = dynamic_cast<const KnobVirtualCoresFarm*>(_configuration->getKnob(c, KNOB_VIRTUAL_CORES));
+      auto tmp = knobWorkers->getActiveWorkers();
+      newWorkers.insert(newWorkers.end(), tmp.begin(), tmp.end());
+    }
     MonitoredSample sample;
 
     if(_activeWorkers.size() != newWorkers.size()){
@@ -948,19 +859,6 @@ void ManagerFastFlow::terminationManagement(){
 
 ulong ManagerFastFlow::getExecutionTime(){
     return _farm->ffTime();
-}
-
-void ManagerFastFlow::shrinkPause(){
-    KnobVirtualCoresFarm* k = dynamic_cast<KnobVirtualCoresFarm*>(_configuration->getKnob(KNOB_VIRTUAL_CORES));
-    k->prepareToFreeze();
-    k->freeze();
-}
-
-void ManagerFastFlow::stretchPause(){
-    KnobVirtualCoresFarm* k = dynamic_cast<KnobVirtualCoresFarm*>(_configuration->getKnob(KNOB_VIRTUAL_CORES));
-    size_t v = k->getRealValue();
-    k->prepareToRun(v);
-    k->run(v);
 }
 
 ManagerFastFlowPipeline::ManagerFastFlowPipeline(ff_pipeline* pipe, std::vector<bool> farmsFlags, Parameters nornirParameters):
@@ -1138,10 +1036,12 @@ void ManagerFastFlowPipeline::waitForStart(){
     
     // Ok now configuration can be created.
     Manager::_configuration = new ConfigurationPipe(_p, _samples,
-                                                    farmsKnobs, _allowedValues);
-    dynamic_cast<KnobMappingExternal*>(_configuration->getKnob(KNOB_MAPPING))->setPid(getpid());
-    if(_p.clockModulationEmulated){
-        dynamic_cast<KnobClkModEmulated*>(_configuration->getKnob(KNOB_CLKMOD))->setPid(getpid());
+                                                    farmsKnobs, _allowedValues, _numHMP);
+    for(uint c = 0; c < _numHMP; c++){
+      dynamic_cast<KnobMappingExternal*>(_configuration->getKnob(c, KNOB_MAPPING))->setPid(getpid());
+      if(_p.clockModulationEmulated){
+          dynamic_cast<KnobClkModEmulated*>(_configuration->getKnob(c, KNOB_CLKMOD))->setPid(getpid());
+      }
     }
     lockKnobs();
     _configuration->createAllRealCombinations();
@@ -1175,8 +1075,12 @@ void ManagerFastFlowPipeline::shrinkPause(){;}
 void ManagerFastFlowPipeline::stretchPause(){;}
 
 void ManagerFastFlowPipeline::postConfigurationManagement(){
-    const KnobVirtualCoresPipe* knobWorkers = dynamic_cast<const KnobVirtualCoresPipe*>(_configuration->getKnob(KNOB_VIRTUAL_CORES));
-    std::vector<AdaptiveNode*> newWorkers = knobWorkers->getActiveWorkers();
+    std::vector<AdaptiveNode*> newWorkers;
+    for(size_t c = 0; c < _numHMP; c++){
+      const KnobVirtualCoresPipe* knobWorkers = dynamic_cast<const KnobVirtualCoresPipe*>(_configuration->getKnob(c, KNOB_VIRTUAL_CORES));
+      auto tmp = knobWorkers->getActiveWorkers();
+      newWorkers.insert(newWorkers.end(), tmp.begin(), tmp.end());
+    }
     MonitoredSample sample;
 
     std::vector<double> oldAllocation, newAllocation;
@@ -1222,15 +1126,19 @@ void ManagerFastFlowPipeline::postConfigurationManagement(){
 
 ManagerTest::ManagerTest(Parameters nornirParameters, uint numthreads):Manager(nornirParameters){
     //TODO: Avoid this initialization phase which is common to all the managers.
-    Manager::_configuration = new ConfigurationExternal(_p);
-    dynamic_cast<KnobVirtualCores*>(_configuration->getKnob(KNOB_VIRTUAL_CORES))->changeMax(numthreads);
+    Manager::_configuration = new ConfigurationExternal(_p, _numHMP);
+    for(size_t c = 0; c < _numHMP; c++){
+      dynamic_cast<KnobVirtualCores*>(_configuration->getKnob(c, KNOB_VIRTUAL_CORES))->changeMax(numthreads);
+    }
     // For instrumented application we do not care if synchronous of not
     // (we count iterations).
     _p.synchronousWorkers = false;
 }
 
 void ManagerTest::waitForStart(){
-    dynamic_cast<KnobMappingExternal*>(_configuration->getKnob(KNOB_MAPPING))->setPid(getpid());
+    for(size_t c = 0; c < _numHMP; c++){
+      dynamic_cast<KnobMappingExternal*>(_configuration->getKnob(c, KNOB_MAPPING))->setPid(getpid());
+    }
 }
 
 }

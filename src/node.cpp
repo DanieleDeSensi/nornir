@@ -83,6 +83,7 @@ void AdaptiveNode::initPreRun(const Parameters p, NodeType nodeType,
     _nodeType = nodeType;
     _terminated = terminated;
     _ffThread = ffThread;
+    _topology = _p.mammut.getInstanceTopology();
 }
 
 void AdaptiveNode::initPostRun(){
@@ -100,13 +101,13 @@ void AdaptiveNode::initPostRun(){
     _thread = _tasksManager->getThreadHandler(getpid(), tid);
 }
 
-void AdaptiveNode::move(VirtualCore* vc){
+void AdaptiveNode::move(VirtualCoreId vc){
     if(_thread){
         _thread->move(vc);
     }
 }
 
-void AdaptiveNode::move(const vector<const VirtualCore*>& virtualCores){
+void AdaptiveNode::move(const vector<VirtualCoreId>& virtualCores){
     if(_thread){
         _thread->move(virtualCores);
     }

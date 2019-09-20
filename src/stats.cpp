@@ -125,25 +125,57 @@ void LoggerStream::log(bool isCalibrationPhase,
                        const Configuration& configuration,
                        const Smoother<MonitoredSample>& samples,
                        const Requirements& requirements){
-    const vector<VirtualCore*>& virtualCores = dynamic_cast<const KnobMapping*>(configuration.getKnob(KNOB_MAPPING))->getActiveVirtualCores();
     MonitoredSample ms = samples.average();
     *_statsStream << getRelativeTimestamp() << "\t";
     *_statsStream << "[";
-    for(size_t i = 0; i < virtualCores.size(); i++){
-        *_statsStream << virtualCores.at(i)->getVirtualCoreId() << ",";
+    for(size_t c = 0; c < configuration.getNumHMP(); c++){
+      const vector<VirtualCore*>& virtualCores = dynamic_cast<const KnobMapping*>(configuration.getKnob(c, KNOB_MAPPING))->getActiveVirtualCores();
+      for(size_t i = 0; i < virtualCores.size(); i++){
+          *_statsStream << virtualCores.at(i)->getVirtualCoreId() << ",";
+      }
+      if(configuration.getNumHMP() > 1){
+        *_statsStream << "|";
+      }
     }
     *_statsStream << "]" << "\t";
 
-    *_statsStream << configuration.getRealValue(KNOB_VIRTUAL_CORES) << "\t";
-    *_statsStream << configuration.getRealValue(KNOB_HYPERTHREADING) << "\t";
-    
-    Frequency frequency = configuration.getRealValue(KNOB_FREQUENCY);
+    for(size_t c = 0; c < configuration.getNumHMP(); c++){
+      *_statsStream << configuration.getRealValue(c, KNOB_VIRTUAL_CORES);
+      if(configuration.getNumHMP() > 1){
+        *_statsStream << "|";
+      }
+    }
+    *_statsStream << "\t";
 
-    // Print frequency as string to avoid conversion to exp notation.
-    std::ostringstream strs;
-    strs << std::fixed << std::setprecision(0) << frequency;
-    *_statsStream << strs.str() << "\t";
-    *_statsStream << configuration.getRealValue(KNOB_CLKMOD) << "\t";
+    for(size_t c = 0; c < configuration.getNumHMP(); c++){
+      *_statsStream << configuration.getRealValue(KNOB_HYPERTHREADING);
+      if(configuration.getNumHMP() > 1){
+        *_statsStream << "|";
+      }
+    }
+    *_statsStream << "\t";
+    
+    for(size_t c = 0; c < configuration.getNumHMP(); c++){
+      Frequency frequency = configuration.getRealValue(KNOB_FREQUENCY);
+      // Print frequency as string to avoid conversion to exp notation.
+      std::ostringstream strs;
+      strs << std::fixed << std::setprecision(0) << frequency;
+      *_statsStream << strs.str();
+      if(configuration.getNumHMP() > 1){
+        *_statsStream << "|";
+      }
+    }
+    *_statsStream << "\t";
+
+    for(size_t c = 0; c < configuration.getNumHMP(); c++){
+      *_statsStream << configuration.getRealValue(KNOB_CLKMOD);
+      if(configuration.getNumHMP() > 1){
+        *_statsStream << "|";
+      }
+    }
+    *_statsStream << "\t";
+
+
     *_statsStream << samples.getLastSample().throughput << "\t";
     *_statsStream << ms.throughput << "\t";
     *_statsStream << samples.coefficientVariation().throughput << "\t";
@@ -241,11 +273,12 @@ void LoggerGraphite::log(bool isCalibrationPhase,
     /*************************************************/
     /*               Resources info                  */
     /*************************************************/
-    for(auto vc : dynamic_cast<const KnobMapping*>(configuration.getKnob(KNOB_MAPPING))->getActiveVirtualCores()){
+    // TODO: Fix for HMP (getKnob and getRealValue)
+    for(auto vc : dynamic_cast<const KnobMapping*>(configuration.getKnob(0, KNOB_MAPPING))->getActiveVirtualCores()){
         graphite_send_plain((std::string("nornir.resources.cores.") + utils::intToString(vc->getVirtualCoreId())).c_str(), 1, timestamp);
     }
     // Set all other cores to zero.
-    for(auto vc : dynamic_cast<const KnobMapping*>(configuration.getKnob(KNOB_MAPPING))->getUnusedVirtualCores()){
+    for(auto vc : dynamic_cast<const KnobMapping*>(configuration.getKnob(0, KNOB_MAPPING))->getUnusedVirtualCores()){
         graphite_send_plain((std::string("nornir.resources.cores.") + utils::intToString(vc->getVirtualCoreId())).c_str(), 0, timestamp);
     }
     graphite_send_plain("nornir.resources.cores.num", configuration.getRealValue(KNOB_VIRTUAL_CORES), timestamp);

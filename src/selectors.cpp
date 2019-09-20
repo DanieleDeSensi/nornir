@@ -37,7 +37,7 @@
 #undef DEBUG
 #undef DEBUGB
 
-#define DEBUG_SELECTORS
+//#define DEBUG_SELECTORS
 
 #ifdef DEBUG_SELECTORS
 #define DEBUG(x) do { std::cerr << "[Selectors] " << x << std::endl; } while (0)

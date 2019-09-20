@@ -125,6 +125,7 @@ private:
     bool _goingToFreeze;
     mammut::task::TasksManager* _tasksManager;
     mammut::task::ThreadHandler* _thread;
+    mammut::topology::Topology* _topology;
     // We push the pointer to a position in the _managementRequests array.
     // In our case is always _managementRequests[i].type == i
     ManagementRequest _managementRequests[MGMT_REQ_NUM];
@@ -164,13 +165,13 @@ private:
      * Moves this node on a specific virtual core.
      * @param vc The virtual core where this nodes must be moved.
      */
-    void move(mammut::topology::VirtualCore* vc);
+    void move(mammut::topology::VirtualCoreId vc);
 
     /**
      * Moves this node on a specific set of virtual cores.
      * @param vc The virtual cores where this nodes must be moved.
      */
-    void move(const std::vector<const mammut::topology::VirtualCore*>& virtualCores);
+    void move(const std::vector<mammut::topology::VirtualCoreId>& virtualCores);
 
     /**
      * The result of askForSample call.

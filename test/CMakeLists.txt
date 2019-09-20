@@ -11,7 +11,7 @@ endif()
 # Download and unpack googletest at configure time
 configure_file(${PROJECT_SOURCE_DIR}/cmake/gtest_download.cmake.in googletest-download/CMakeLists.txt)
 
-execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+execute_process(COMMAND ${CMAKE_COMMAND} -DCMAKE_BUILD_TYPE=Debug -G "${CMAKE_GENERATOR}" .
   RESULT_VARIABLE result
   WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/test/googletest-download )
 if(result)

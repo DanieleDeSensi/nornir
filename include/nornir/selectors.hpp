@@ -243,7 +243,7 @@ public:
 
     ~SelectorManualCli();
     KnobsValues getNextKnobsValues();
-    bool isMaxPerformanceConfiguration() const{return false;} // Never used by this selectors
+    bool isMaxPerformanceConfiguration() const{return false;} // Never used by this selector
 };
 
 /**
@@ -261,7 +261,7 @@ public:
 
     ~SelectorManualWeb();
     KnobsValues getNextKnobsValues();
-    bool isMaxPerformanceConfiguration() const{return false;} // Never used by this selectors
+    bool isMaxPerformanceConfiguration() const{return false;} // Never used by this selector
 };
 
 /**
@@ -610,6 +610,18 @@ public:
     ~SelectorLiMartinez();
 
     KnobsValues getNextKnobsValues();
+};
+
+class SelectorHMPLocalSearch: public Selector{
+protected:
+    bool isMaxPerformanceConfiguration() const{return false;} // Never used by this selector
+public:
+  SelectorHMPLocalSearch(const Parameters& p,
+                         const Configuration& configuration,
+                         const Smoother<MonitoredSample>* samples);
+  ~SelectorHMPLocalSearch();
+
+  KnobsValues getNextKnobsValues();
 };
 
 }

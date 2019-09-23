@@ -70,7 +70,8 @@ if(ENABLE_GSL)
 endif(ENABLE_GSL)
 
 if(ENABLE_MLPACK)
-    find_library(MLPACK_LIBRARY NAMES mlpack)
+    find_package(MLPACK 3.0.0 REQUIRED)
+    include_directories(${MLPACK_INCLUDE_DIRS})
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_MLPACK")
 
     # Check armadillo deprecated functions
@@ -109,11 +110,11 @@ endif(ENABLE_OMP)
 
 # Dynamic Library
 add_dependencies(nornir compile_ext mammut_repo riff_repo ${OMP_DEP} ${OMP_DEP_LAUNCHER})
-target_link_libraries(nornir riff mammut ${MLPACK_LIBRARY} ${GSL_LIBRARY} ${ARMA_LIBRARY} Threads::Threads ${PROJECT_SOURCE_DIR}/src/external/queues/hzdptr.o ${PROJECT_SOURCE_DIR}/src/external/queues/xxhash.o) 
+target_link_libraries(nornir riff mammut ${MLPACK_LIBRARIES} ${GSL_LIBRARY} ${ARMA_LIBRARY} Threads::Threads ${PROJECT_SOURCE_DIR}/src/external/queues/hzdptr.o ${PROJECT_SOURCE_DIR}/src/external/queues/xxhash.o) 
 
 # Static Library
 add_dependencies(nornir_static compile_ext mammut_repo riff_repo ${OMP_DEP} ${OMP_DEP_LAUNCHER})
-target_link_libraries(nornir_static riff_static mammut_static  ${MLPACK_LIBRARY} ${GSL_LIBRARY} ${ARMA_LIBRARY} Threads::Threads ${PROJECT_SOURCE_DIR}/src/external/queues/hzdptr.o ${PROJECT_SOURCE_DIR}/src/external/queues/xxhash.o) 
+target_link_libraries(nornir_static riff_static mammut_static  ${MLPACK_LIBRARIES} ${GSL_LIBRARY} ${ARMA_LIBRARY} Threads::Threads ${PROJECT_SOURCE_DIR}/src/external/queues/hzdptr.o ${PROJECT_SOURCE_DIR}/src/external/queues/xxhash.o) 
 
 
 ###########

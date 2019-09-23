@@ -364,6 +364,9 @@ Selector* Manager::createSelector() const{
                 throw std::runtime_error("Please recompile with -DENABLE_ARMADILLO=ON to use the required selector.");
 #endif
             }break;
+            case STRATEGY_SELECTION_HMP_LOCALSEARCH:{
+                return new SelectorHMPLocalSearch(_p, *_configuration, _samples);
+            }break;
             case STRATEGY_SELECTION_FULLSEARCH:{
                 return new SelectorFullSearch(_p, *_configuration, _samples);
             }break;

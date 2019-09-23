@@ -163,6 +163,9 @@ typedef enum{
     // and Lafferty, John D. and Hoffmann, Henry
     STRATEGY_SELECTION_LEO,
 
+    // Local search strategy starting from a predicted optimal (for HMP systems).
+    STRATEGY_SELECTION_HMP_LOCALSEARCH,
+
     STRATEGY_SELECTION_NUM // <- Must always be the last.
 }StrategySelection;
 
@@ -315,6 +318,9 @@ typedef enum{
 
     // Parameters for Leo predictors not specified.
     VALIDATION_NO_LEO_PARAMETERS,
+
+    // Parameters expressing the first configuration not specified.
+    VALIDATION_NO_FIRSTCONF_PARAMETERS,
 
     // Clock modulation not available.
     VALIDATION_NO_CLKMOD,
@@ -582,6 +588,11 @@ typedef struct{
 }LeoParameters;
 
 typedef struct{
+  std::vector<uint> virtualCores;
+  std::vector<uint> frequency;
+}FirstConfiguration;
+
+typedef struct{
     /**
      * If true, the interpreter will ensure that instructions belonging
      * to different stream elements will be processed in the same order
@@ -793,6 +804,8 @@ public:
 
     // Parameters for LEO predictor.
     LeoParameters leo;
+
+    FirstConfiguration firstConfiguration;
 
     // If true, before changing the number of workers the frequency will be
     // set to maximum to reduce the latency of the reconfiguration. The

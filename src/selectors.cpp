@@ -1506,4 +1506,24 @@ changeworkers:
     return kv;
 }
 
+SelectorHMPLocalSearch::SelectorHMPLocalSearch(const Parameters& p,
+                       const Configuration& configuration,
+                       const Smoother<MonitoredSample>* samples):
+    Selector(p, configuration, samples){
+  ;
+}
+
+SelectorHMPLocalSearch::~SelectorHMPLocalSearch(){
+  ;
+}
+
+KnobsValues SelectorHMPLocalSearch::getNextKnobsValues(){
+  KnobsValues kv(KNOB_VALUE_REAL, _configuration.getNumHMP());
+  for(size_t i = 0; i < _configuration.getNumHMP(); i++){
+    kv(i, KNOB_VIRTUAL_CORES) = _p.firstConfiguration.virtualCores[i];
+    kv(i, KNOB_FREQUENCY) = _p.firstConfiguration.frequency[i];
+  }
+  return kv;
+}
+
 }

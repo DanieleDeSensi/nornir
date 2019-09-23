@@ -628,6 +628,23 @@ ParametersValidation Parameters::validateSelector(){
         return VALIDATION_NO_LEO_PARAMETERS;
     }
 
+    // HMP - Local Search
+    knobsSupportSelector[STRATEGY_SELECTION_HMP_LOCALSEARCH][KNOB_VIRTUAL_CORES] = true;
+    knobsSupportSelector[STRATEGY_SELECTION_HMP_LOCALSEARCH][KNOB_FREQUENCY] = true;
+    knobsSupportSelector[STRATEGY_SELECTION_HMP_LOCALSEARCH][KNOB_MAPPING] = false;
+    knobsSupportSelector[STRATEGY_SELECTION_HMP_LOCALSEARCH][KNOB_HYPERTHREADING] = false;
+    knobsSupportSelector[STRATEGY_SELECTION_HMP_LOCALSEARCH][KNOB_CLKMOD] = false;
+
+    if(strategySelection == STRATEGY_SELECTION_HMP_LOCALSEARCH &&
+       (firstConfiguration.virtualCores.empty() ||
+        firstConfiguration.frequency.empty())){
+        return VALIDATION_NO_FIRSTCONF_PARAMETERS;
+    }
+
+    if(! (firstConfiguration.frequency.size() == firstConfiguration.virtualCores.size())){
+      return VALIDATION_NO;
+    }
+
 
     if(strategySelection != STRATEGY_SELECTION_LEARNING){
         // Check if the knob enabled can be managed by the selector specified.
@@ -887,6 +904,9 @@ void Parameters::loadXml(const string& paramFileName){
     SETVALUE(xt, String, leo.throughputData);
     SETVALUE(xt, String, leo.powerData);
     SETVALUE(xt, Uint, leo.numSamples);
+
+    SETVALUE(xt, ArrayUint, firstConfiguration.frequency);
+    SETVALUE(xt, ArrayUint, firstConfiguration.virtualCores);
 
     SETVALUE(xt, Bool, dataflow.orderedProcessing);
     SETVALUE(xt, Bool, dataflow.orderedOutput);

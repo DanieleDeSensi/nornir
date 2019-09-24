@@ -55,7 +55,6 @@ private:
     const Parameters& _p;
     bool _combinationsCreated;
     std::vector<KnobsValues> _combinations;
-    bool _knobsChangeNeeded;
     ReconfigurationStats _reconfigurationStats;
 
     void combinations(std::vector<std::vector<double> > array, size_t i,

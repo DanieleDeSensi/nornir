@@ -51,6 +51,22 @@ public:
      */
     bool getRealFromRelative(double relative, double& real) const;
 
+    double getRelativeFromReal(double real) const;
+
+    /**
+     * @brief Returns the real value which is 'step' steps behind the given value.
+     * @param step The lenght of the step.
+     * @return The real value which is 'step' steps behind the given value.
+     */
+    double getPreviousRealValue(double realValue, uint step) const;
+
+    /**
+     * @brief Returns the real value which is 'step' steps ahead the given value.
+     * @param step The lenght of the step.
+     * @return The real value which is 'step' steps ahead the given value.
+     */
+    double getNextRealValue(double realValue, uint step) const;
+
     /**
      * Changes the value of this knob.
      * @param v Is a value in the range [0, 100], representing the value to be

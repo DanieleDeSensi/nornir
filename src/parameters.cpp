@@ -781,6 +781,7 @@ template<> char const* enumStrings<StrategySelection>::data[] = {
     "FULLSEARCH",
     "LIMARTINEZ",
     "LEO",
+    "HMP_LOCALSEARCH",
     "NUM" // <- Must always be the last
 };
 

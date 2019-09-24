@@ -93,6 +93,44 @@ bool Knob::getRealFromRelative(double relative, double& real) const{
     }
 }
 
+double Knob::getRelativeFromReal(double real) const{
+  vector<double> values = getAllowedValues();
+  for(size_t i = 0; i < values.size(); i++){
+    if(values[i] == real){
+      return (((double) i) / values.size()) * 100.0;
+    }
+  }
+  return -1;
+}
+
+double Knob::getPreviousRealValue(double realValue, uint step) const{
+  vector<double> values = getAllowedValues();
+  for(size_t i = 0; i < values.size(); i++){
+    if(values[i] == realValue){
+      if(i - step >= 0){
+        return values[i - step];
+      }else{
+        return values[0];
+      }
+    }
+  }
+  throw std::runtime_error("getPreviousRealValue called with non-existing real value.");
+}
+
+double Knob::getNextRealValue(double realValue, uint step) const{
+  vector<double> values = getAllowedValues();
+  for(size_t i = 0; i < values.size(); i++){
+    if(values[i] == realValue){
+      if(i + step < values.size()){
+        return values[i + step];
+      }else{
+        return values[values.size() - 1];
+      }
+    }
+  }
+  throw std::runtime_error("getNextRealValue called with non-existing real value.");
+}
+
 void Knob::setRelativeValue(double v){
     double real;
     if(getRealFromRelative(v, real)){

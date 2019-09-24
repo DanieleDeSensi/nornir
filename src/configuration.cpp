@@ -41,8 +41,7 @@ namespace nornir{
 Configuration::Configuration(const Parameters& p, uint numHMPs):
     _numServiceNodes(0),
     _numHMPs(numHMPs),
-    _p(p), _combinationsCreated(false),
-    _knobsChangeNeeded(false){
+    _p(p), _combinationsCreated(false){
     _knobs.resize(numHMPs);
     memset(_triggers, 0, sizeof(_triggers));
 }
@@ -117,7 +116,14 @@ KnobsValues Configuration::getRealValues(const KnobsValues& values) const{
 }
 
 bool Configuration::knobsChangeNeeded() const{
-    return _knobsChangeNeeded;
+  for(uint c = 0; c < _knobs.size(); c++){
+    for(size_t i = 0; i < KNOB_NUM; i++){
+        if(!_knobs[c][i]->isLocked()){
+            return true;
+        }
+    }
+  }
+  return false;
 }
 
 void Configuration::createAllRealCombinations(){
@@ -129,9 +135,6 @@ void Configuration::createAllRealCombinations(){
     _combinations.clear();
     for(size_t i = 0; i < KNOB_NUM; i++){
         values.push_back(_knobs[0][i]->getAllowedValues());
-        if(!_knobs[0][i]->isLocked()){
-            _knobsChangeNeeded = true;
-        }
     }
     combinations(values, 0, accum);
     _combinationsCreated = true;

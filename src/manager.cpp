@@ -180,7 +180,9 @@ void Manager::run(){
 
     waitForStart();
     lockKnobs();
-    _configuration->createAllRealCombinations();
+    if(_numHMP == 1){
+      _configuration->createAllRealCombinations();
+    }
     _selector = createSelector();
     for(auto logger : _p.loggers){
         logger->setStartTimestamp();

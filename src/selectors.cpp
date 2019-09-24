@@ -24,7 +24,6 @@
  *
  * =========================================================================
  */
-
 #include <nornir/selectors.hpp>
 #include <nornir/utils.hpp>
 #include <riff/external/cppnanomsg/nn.hpp>
@@ -916,7 +915,7 @@ std::unique_ptr<Predictor> SelectorLearner::getPredictor(PredictorType type,
 #ifdef ENABLE_ARMADILLO
                     predictor = new PredictorLeo(type, p, configuration, samples);
 #else
-              throw std::runtime_error("Please recompile with -DENABLE_ARMADILLO=ON to use the required predictor.");
+                    throw std::runtime_error("Please recompile with -DENABLE_ARMADILLO=ON to use the required predictor.");
 #endif
                 }break;
                 case STRATEGY_PREDICTION_PERFORMANCE_SMT:{
@@ -1509,21 +1508,76 @@ changeworkers:
 SelectorHMPLocalSearch::SelectorHMPLocalSearch(const Parameters& p,
                        const Configuration& configuration,
                        const Smoother<MonitoredSample>* samples):
-    Selector(p, configuration, samples){
-  ;
+    Selector(p, configuration, samples),
+    _opt(neme::NelderMeadOptimizer(0.001, configuration.getNumHMP()*2)){
+  KnobVirtualCores* kCores = dynamic_cast<KnobVirtualCores*>(_configuration.getKnob(KNOB_VIRTUAL_CORES));
+  KnobFrequency* kFrequency = dynamic_cast<KnobFrequency*>(_configuration.getKnob(KNOB_FREQUENCY));
+  uint step = 2;
+  _opt.insert(kvToNmVector(getFirstConfiguration()));
+  for(size_t i = 0; i < _configuration.getNumHMP(); i++){
+    KnobsValues kv = getFirstConfiguration();
+    kv(i, KNOB_VIRTUAL_CORES) = kCores->getNextRealValue(kv(i, KNOB_VIRTUAL_CORES), step);
+    kv(i, KNOB_FREQUENCY) = kFrequency->getNextRealValue(kv(i, KNOB_FREQUENCY), step);
+    DEBUG("Adding " << kv << " to the starting simplex.");
+    _opt.insert(kvToNmVector(kv));
+
+    kv = getFirstConfiguration();
+    kv(i, KNOB_VIRTUAL_CORES) = kCores->getPreviousRealValue(kv(i, KNOB_VIRTUAL_CORES), step);
+    kv(i, KNOB_FREQUENCY) = kFrequency->getPreviousRealValue(kv(i, KNOB_FREQUENCY), step);
+    DEBUG("Adding " << kv << " to the starting simplex.");
+    _opt.insert(kvToNmVector(kv));
+  }
 }
 
 SelectorHMPLocalSearch::~SelectorHMPLocalSearch(){
   ;
 }
 
-KnobsValues SelectorHMPLocalSearch::getNextKnobsValues(){
+// Vector[0] = VirtualCores-0, Vector[1]=Frequency-0, Vector[2]=VirtualCores-1, Vector[3]=Frequency-1
+KnobsValues SelectorHMPLocalSearch::nmVectorToKv(neme::Vector v) const{
+  KnobsValues kv(KNOB_VALUE_REAL, _configuration.getNumHMP());
+  for(uint i = 0; i < _configuration.getNumHMP(); i++){
+    kv(i, KNOB_VIRTUAL_CORES) = v[i*2];
+    kv(i, KNOB_FREQUENCY) = v[i*2 + 1];
+  }
+  return kv;
+}
+
+neme::Vector SelectorHMPLocalSearch::kvToNmVector(KnobsValues kv) const{
+  if(!kv.areReal()){
+    throw std::runtime_error("kvToNmVector only accepts real KnobsValues");
+  }
+  neme::Vector v;
+  v.prepare(_configuration.getNumHMP() * 2); // We currently support only cores + frequency
+  for(uint i = 0; i < _configuration.getNumHMP(); i++){
+    v[i*2] = kv(i, KNOB_VIRTUAL_CORES);
+    v[i*2 + 1] = kv(i, KNOB_FREQUENCY);
+  }
+  return v;
+}
+
+KnobsValues SelectorHMPLocalSearch::getFirstConfiguration() const{
   KnobsValues kv(KNOB_VALUE_REAL, _configuration.getNumHMP());
   for(size_t i = 0; i < _configuration.getNumHMP(); i++){
     kv(i, KNOB_VIRTUAL_CORES) = _p.firstConfiguration.virtualCores[i];
     kv(i, KNOB_FREQUENCY) = _p.firstConfiguration.frequency[i];
   }
   return kv;
+}
+
+double SelectorHMPLocalSearch::nmScore() const{
+  double watts = _samples->average().watts;
+  double thr = _samples->average().throughput;
+  return (_p.requirements.powerConsumption - watts) / _p.requirements.powerConsumption +
+         (thr - _p.requirements.throughput) / _p.requirements.throughput;
+}
+
+KnobsValues SelectorHMPLocalSearch::getNextKnobsValues(){
+  if(_opt.done()){
+    return _configuration.getRealValues();
+  }else{
+    return nmVectorToKv(_opt.step(kvToNmVector(_configuration.getRealValues()), nmScore()));
+  }
 }
 
 }

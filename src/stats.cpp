@@ -148,7 +148,7 @@ void LoggerStream::log(bool isCalibrationPhase,
     *_statsStream << "\t";
 
     for(size_t c = 0; c < configuration.getNumHMP(); c++){
-      *_statsStream << configuration.getRealValue(KNOB_HYPERTHREADING);
+      *_statsStream << configuration.getRealValue(c, KNOB_HYPERTHREADING);
       if(configuration.getNumHMP() > 1){
         *_statsStream << "|";
       }
@@ -156,7 +156,7 @@ void LoggerStream::log(bool isCalibrationPhase,
     *_statsStream << "\t";
     
     for(size_t c = 0; c < configuration.getNumHMP(); c++){
-      Frequency frequency = configuration.getRealValue(KNOB_FREQUENCY);
+      Frequency frequency = configuration.getRealValue(c, KNOB_FREQUENCY);
       // Print frequency as string to avoid conversion to exp notation.
       std::ostringstream strs;
       strs << std::fixed << std::setprecision(0) << frequency;
@@ -168,7 +168,7 @@ void LoggerStream::log(bool isCalibrationPhase,
     *_statsStream << "\t";
 
     for(size_t c = 0; c < configuration.getNumHMP(); c++){
-      *_statsStream << configuration.getRealValue(KNOB_CLKMOD);
+      *_statsStream << configuration.getRealValue(c, KNOB_CLKMOD);
       if(configuration.getNumHMP() > 1){
         *_statsStream << "|";
       }

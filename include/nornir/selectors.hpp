@@ -33,6 +33,7 @@
 #include "configuration.hpp"
 #include "knob.hpp"
 #include <mammut/mammut.hpp>
+#include <nornir/external/nelder-mead.h>
 
 #include <memory>
 
@@ -613,6 +614,12 @@ public:
 };
 
 class SelectorHMPLocalSearch: public Selector{
+private:
+    neme::NelderMeadOptimizer _opt;
+    KnobsValues nmVectorToKv(neme::Vector v) const;
+    neme::Vector kvToNmVector(KnobsValues kv) const;
+    KnobsValues getFirstConfiguration() const;
+    double nmScore() const;
 protected:
     bool isMaxPerformanceConfiguration() const{return false;} // Never used by this selector
 public:

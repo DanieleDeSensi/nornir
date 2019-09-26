@@ -76,7 +76,7 @@ TEST(ConfigurationTest, HMPTest) {
     }
 
     EXPECT_EQ(configuration.getNumServiceNodes(), (uint) 0);
-    EXPECT_FALSE(configuration.knobsChangeNeeded());
+    EXPECT_TRUE(configuration.knobsChangeNeeded());
     configuration.maxAllKnobs();
     KnobsValues kv = configuration.getRealValues();
     for(uint c = 0; c < 2; c++){
@@ -123,8 +123,10 @@ TEST(ConfigurationTest, HMPTest) {
       dynamic_cast<KnobMappingExternal*>(configuration3.getKnob(c, KNOB_MAPPING))->setPid(getpid());
       dynamic_cast<KnobClkModEmulated*>(configuration3.getKnob(c, KNOB_CLKMOD))->setPid(getpid());
     }
-    for(size_t i = 0; i < KNOB_NUM; i++){
-        configuration3.getKnob((KnobType) i)->lockToMax();
+    for(uint c = 0; c < 2; c++){
+      for(size_t i = 0; i < KNOB_NUM; i++){
+          configuration3.getKnob(c, (KnobType) i)->lockToMax();
+      }
     }
     EXPECT_FALSE(configuration3.knobsChangeNeeded());
 }

@@ -118,7 +118,7 @@ KnobsValues Configuration::getRealValues(const KnobsValues& values) const{
 bool Configuration::knobsChangeNeeded() const{
   for(uint c = 0; c < _knobs.size(); c++){
     for(size_t i = 0; i < KNOB_NUM; i++){
-        if(!_knobs[c][i]->isLocked()){
+        if(!_knobs[c][(KnobType) i]->isLocked()){
             return true;
         }
     }

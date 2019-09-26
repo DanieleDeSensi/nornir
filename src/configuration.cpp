@@ -156,6 +156,9 @@ void Configuration::setFastReconfiguration(){
 }
 
 Knob* Configuration::getKnob(KnobType t) const{
+    if(_numHMPs > 1){
+       throw std::runtime_error("getKnob: When running on HMP please specify the HMPid.");
+    }
     return getKnob(0, t);
 }
 

@@ -36,7 +36,7 @@
 #undef DEBUG
 #undef DEBUGB
 
-//#define DEBUG_SELECTORS
+#define DEBUG_SELECTORS
 
 #ifdef DEBUG_SELECTORS
 #define DEBUG(x) do { std::cerr << "[Selectors] " << x << std::endl; } while (0)
@@ -1509,22 +1509,49 @@ SelectorHMPLocalSearch::SelectorHMPLocalSearch(const Parameters& p,
                        const Configuration& configuration,
                        const Smoother<MonitoredSample>* samples):
     Selector(p, configuration, samples),
-    _opt(neme::NelderMeadOptimizer(0.001, configuration.getNumHMP()*2)){
-  KnobVirtualCores* kCores = dynamic_cast<KnobVirtualCores*>(_configuration.getKnob(KNOB_VIRTUAL_CORES));
-  KnobFrequency* kFrequency = dynamic_cast<KnobFrequency*>(_configuration.getKnob(KNOB_FREQUENCY));
-  uint step = 2;
-  _opt.insert(kvToNmVector(getFirstConfiguration()));
+    _opt(configuration.getNumHMP()*2),
+    _firstGenerated(false){
+  uint step = 20;
+  KnobsValues firstReal = getFirstConfiguration();
+  KnobsValues firstRelative(KNOB_VALUE_RELATIVE, _configuration.getNumHMP());
+
   for(size_t i = 0; i < _configuration.getNumHMP(); i++){
-    KnobsValues kv = getFirstConfiguration();
-    kv(i, KNOB_VIRTUAL_CORES) = kCores->getNextRealValue(kv(i, KNOB_VIRTUAL_CORES), step);
-    kv(i, KNOB_FREQUENCY) = kFrequency->getNextRealValue(kv(i, KNOB_FREQUENCY), step);
-    DEBUG("Adding " << kv << " to the starting simplex.");
+    KnobVirtualCores* kCores = dynamic_cast<KnobVirtualCores*>(_configuration.getKnob(i, KNOB_VIRTUAL_CORES));
+    KnobFrequency* kFrequency = dynamic_cast<KnobFrequency*>(_configuration.getKnob(i, KNOB_FREQUENCY));
+    firstRelative(i, KNOB_VIRTUAL_CORES) = kCores->getRelativeFromReal(firstReal(i, KNOB_VIRTUAL_CORES));
+    firstRelative(i, KNOB_FREQUENCY) = kFrequency->getRelativeFromReal(firstReal(i, KNOB_FREQUENCY));
+  }
+  _opt.insert(kvToNmVector(firstRelative));
+  _lastRelative = firstRelative;
+
+  for(size_t i = 0; i < _configuration.getNumHMP(); i++){
+    KnobVirtualCores* kCores = dynamic_cast<KnobVirtualCores*>(_configuration.getKnob(i, KNOB_VIRTUAL_CORES));
+    KnobFrequency* kFrequency = dynamic_cast<KnobFrequency*>(_configuration.getKnob(i, KNOB_FREQUENCY));
+
+    KnobsValues kv = firstRelative;
+    /*
+    double realCores = kCores->getNextRealValue(firstReal(i, KNOB_VIRTUAL_CORES), step);
+    double realFrequency = kFrequency->getNextRealValue(firstReal(i, KNOB_FREQUENCY), step);
+    kv(i, KNOB_VIRTUAL_CORES) = kCores->getRelativeFromReal(realCores);
+    kv(i, KNOB_FREQUENCY) = kFrequency->getRelativeFromReal(realFrequency);
+    */
+    
+    kv(i, KNOB_VIRTUAL_CORES) = 100.0;
+    kv(i, KNOB_FREQUENCY) = 100.0;
+    DEBUG("Adding " <<  kv(0, KNOB_VIRTUAL_CORES) << ", " << kv(0, KNOB_FREQUENCY) << "|" << kv(1, KNOB_VIRTUAL_CORES) << ", " << kv(1, KNOB_FREQUENCY)  << " to the starting simplex.");
     _opt.insert(kvToNmVector(kv));
 
-    kv = getFirstConfiguration();
-    kv(i, KNOB_VIRTUAL_CORES) = kCores->getPreviousRealValue(kv(i, KNOB_VIRTUAL_CORES), step);
-    kv(i, KNOB_FREQUENCY) = kFrequency->getPreviousRealValue(kv(i, KNOB_FREQUENCY), step);
-    DEBUG("Adding " << kv << " to the starting simplex.");
+
+    kv = firstRelative;
+    /*
+    realCores = kCores->getPreviousRealValue(firstReal(i, KNOB_VIRTUAL_CORES), step);
+    realFrequency = kFrequency->getPreviousRealValue(firstReal(i, KNOB_FREQUENCY), step);
+    kv(i, KNOB_VIRTUAL_CORES) = kCores->getRelativeFromReal(realCores);
+    kv(i, KNOB_FREQUENCY) = kFrequency->getRelativeFromReal(realFrequency);
+    */
+    kv(i, KNOB_VIRTUAL_CORES) = 0.0;
+    kv(i, KNOB_FREQUENCY) = 0.0;
+    DEBUG("Adding " <<  kv(0, KNOB_VIRTUAL_CORES) << ", " << kv(0, KNOB_FREQUENCY) << "|" << kv(1, KNOB_VIRTUAL_CORES) << ", " << kv(1, KNOB_FREQUENCY)  << " to the starting simplex.");
     _opt.insert(kvToNmVector(kv));
   }
 }
@@ -1535,7 +1562,11 @@ SelectorHMPLocalSearch::~SelectorHMPLocalSearch(){
 
 // Vector[0] = VirtualCores-0, Vector[1]=Frequency-0, Vector[2]=VirtualCores-1, Vector[3]=Frequency-1
 KnobsValues SelectorHMPLocalSearch::nmVectorToKv(neme::Vector v) const{
-  KnobsValues kv(KNOB_VALUE_REAL, _configuration.getNumHMP());
+  KnobsValues kv(KNOB_VALUE_RELATIVE, _configuration.getNumHMP());
+  DEBUG(v[0]);
+  DEBUG(v[1]);
+  DEBUG(v[2]);
+  DEBUG(v[3]);
   for(uint i = 0; i < _configuration.getNumHMP(); i++){
     kv(i, KNOB_VIRTUAL_CORES) = v[i*2];
     kv(i, KNOB_FREQUENCY) = v[i*2 + 1];
@@ -1544,8 +1575,8 @@ KnobsValues SelectorHMPLocalSearch::nmVectorToKv(neme::Vector v) const{
 }
 
 neme::Vector SelectorHMPLocalSearch::kvToNmVector(KnobsValues kv) const{
-  if(!kv.areReal()){
-    throw std::runtime_error("kvToNmVector only accepts real KnobsValues");
+  if(!kv.areRelative()){
+    throw std::runtime_error("kvToNmVector only accepts relative KnobsValues");
   }
   neme::Vector v;
   v.prepare(_configuration.getNumHMP() * 2); // We currently support only cores + frequency
@@ -1568,15 +1599,47 @@ KnobsValues SelectorHMPLocalSearch::getFirstConfiguration() const{
 double SelectorHMPLocalSearch::nmScore() const{
   double watts = _samples->average().watts;
   double thr = _samples->average().throughput;
-  return (_p.requirements.powerConsumption - watts) / _p.requirements.powerConsumption +
-         (thr - _p.requirements.throughput) / _p.requirements.throughput;
+  double score = 0;
+
+  if(_p.requirements.powerConsumption != NORNIR_REQUIREMENT_UNDEF && _p.requirements.powerConsumption != NORNIR_REQUIREMENT_MIN){
+    score += (_p.requirements.powerConsumption - watts) / _p.requirements.powerConsumption;
+  }
+  if(_p.requirements.throughput != NORNIR_REQUIREMENT_UNDEF && _p.requirements.throughput != NORNIR_REQUIREMENT_MAX){
+    score += (thr - _p.requirements.throughput) / _p.requirements.throughput;
+  }
+#ifdef DEBUG_SELECTORS
+  KnobsValues kv = _configuration.getRealValues();
+#endif
+  DEBUG("Current values: " << kv(0, KNOB_VIRTUAL_CORES) << ", " << kv(0, KNOB_FREQUENCY) << "|" << kv(1, KNOB_VIRTUAL_CORES) << ", " << kv(1, KNOB_FREQUENCY) << " score " << score);
+  return score;
+}
+
+static bool validVector(const neme::Vector& v){
+  for(int i = 0; i < v.dimension(); i++){
+    if(v.at(i) < 0 || v.at(i) > 100){
+      return false;
+    }
+  }
+  return true;
 }
 
 KnobsValues SelectorHMPLocalSearch::getNextKnobsValues(){
-  if(_opt.done()){
-    return _configuration.getRealValues();
+  if(!_firstGenerated){
+    _firstGenerated = true;
+    return getFirstConfiguration();
   }else{
-    return nmVectorToKv(_opt.step(kvToNmVector(_configuration.getRealValues()), nmScore()));
+    if(_opt.done()){
+      return _configuration.getRealValues();
+    }else{
+      neme::Vector vIn = kvToNmVector(_lastRelative);
+      neme::Vector vOut = _opt.step(vIn, nmScore());
+      while(!validVector(vOut)){
+	DEBUG("Skipping [" << vOut[0] << " " << vOut[1] << " " << vOut[2] << " " << vOut[3] << "]");
+	vOut = _opt.step(vOut, std::numeric_limits<float>::lowest());
+      }
+      _lastRelative = nmVectorToKv(vOut);
+      return _lastRelative;
+    }
   }
 }
 

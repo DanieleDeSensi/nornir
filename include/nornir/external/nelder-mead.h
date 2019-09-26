@@ -218,6 +218,7 @@ class NelderMeadOptimizer {
 
                     // algorithm is terminating, output: simplex' center of gravity
                     Vector cog;
+		    cog.prepare(dimension);
                     for (uint i = 0; i<=dimension; i++) {
                         cog += vectors[i];
                     }

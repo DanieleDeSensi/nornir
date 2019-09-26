@@ -620,6 +620,8 @@ private:
     neme::Vector kvToNmVector(KnobsValues kv) const;
     KnobsValues getFirstConfiguration() const;
     double nmScore() const;
+    bool _firstGenerated;
+    KnobsValues _lastRelative;
 protected:
     bool isMaxPerformanceConfiguration() const{return false;} // Never used by this selector
 public:

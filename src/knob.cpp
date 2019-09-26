@@ -107,14 +107,16 @@ double Knob::getPreviousRealValue(double realValue, uint step) const{
   vector<double> values = getAllowedValues();
   for(size_t i = 0; i < values.size(); i++){
     if(values[i] == realValue){
-      if(i - step >= 0){
+      if(i >= step){
         return values[i - step];
       }else{
         return values[0];
       }
     }
   }
-  throw std::runtime_error("getPreviousRealValue called with non-existing real value.");
+  std::ostringstream strs;
+  strs << realValue;
+  throw std::runtime_error("getPreviousRealValue called with non-existing real value " + strs.str());
 }
 
 double Knob::getNextRealValue(double realValue, uint step) const{
@@ -128,7 +130,9 @@ double Knob::getNextRealValue(double realValue, uint step) const{
       }
     }
   }
-  throw std::runtime_error("getNextRealValue called with non-existing real value.");
+  std::ostringstream strs;
+  strs << realValue;
+  throw std::runtime_error("getNextRealValue called with non-existing real value " + strs.str());
 }
 
 void Knob::setRelativeValue(double v){

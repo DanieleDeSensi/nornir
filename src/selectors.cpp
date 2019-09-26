@@ -1505,13 +1505,12 @@ changeworkers:
     return kv;
 }
 
-SelectorHMPLocalSearch::SelectorHMPLocalSearch(const Parameters& p,
+SelectorHMPNelderMead::SelectorHMPNelderMead(const Parameters& p,
                        const Configuration& configuration,
                        const Smoother<MonitoredSample>* samples):
     Selector(p, configuration, samples),
     _opt(configuration.getNumHMP()*2),
     _firstGenerated(false){
-  uint step = 20;
   KnobsValues firstReal = getFirstConfiguration();
   KnobsValues firstRelative(KNOB_VALUE_RELATIVE, _configuration.getNumHMP());
 
@@ -1529,39 +1528,30 @@ SelectorHMPLocalSearch::SelectorHMPLocalSearch(const Parameters& p,
     KnobFrequency* kFrequency = dynamic_cast<KnobFrequency*>(_configuration.getKnob(i, KNOB_FREQUENCY));
 
     KnobsValues kv = firstRelative;
-    /*
-    double realCores = kCores->getNextRealValue(firstReal(i, KNOB_VIRTUAL_CORES), step);
-    double realFrequency = kFrequency->getNextRealValue(firstReal(i, KNOB_FREQUENCY), step);
+    double realCores = kCores->getNextRealValue(firstReal(i, KNOB_VIRTUAL_CORES), _p.nelderMeadRange);
+    double realFrequency = kFrequency->getNextRealValue(firstReal(i, KNOB_FREQUENCY), _p.nelderMeadRange);
     kv(i, KNOB_VIRTUAL_CORES) = kCores->getRelativeFromReal(realCores);
     kv(i, KNOB_FREQUENCY) = kFrequency->getRelativeFromReal(realFrequency);
-    */
-    
-    kv(i, KNOB_VIRTUAL_CORES) = 100.0;
-    kv(i, KNOB_FREQUENCY) = 100.0;
     DEBUG("Adding " <<  kv(0, KNOB_VIRTUAL_CORES) << ", " << kv(0, KNOB_FREQUENCY) << "|" << kv(1, KNOB_VIRTUAL_CORES) << ", " << kv(1, KNOB_FREQUENCY)  << " to the starting simplex.");
     _opt.insert(kvToNmVector(kv));
 
 
     kv = firstRelative;
-    /*
-    realCores = kCores->getPreviousRealValue(firstReal(i, KNOB_VIRTUAL_CORES), step);
-    realFrequency = kFrequency->getPreviousRealValue(firstReal(i, KNOB_FREQUENCY), step);
+    realCores = kCores->getPreviousRealValue(firstReal(i, KNOB_VIRTUAL_CORES), _p.nelderMeadRange);
+    realFrequency = kFrequency->getPreviousRealValue(firstReal(i, KNOB_FREQUENCY), _p.nelderMeadRange);
     kv(i, KNOB_VIRTUAL_CORES) = kCores->getRelativeFromReal(realCores);
     kv(i, KNOB_FREQUENCY) = kFrequency->getRelativeFromReal(realFrequency);
-    */
-    kv(i, KNOB_VIRTUAL_CORES) = 0.0;
-    kv(i, KNOB_FREQUENCY) = 0.0;
     DEBUG("Adding " <<  kv(0, KNOB_VIRTUAL_CORES) << ", " << kv(0, KNOB_FREQUENCY) << "|" << kv(1, KNOB_VIRTUAL_CORES) << ", " << kv(1, KNOB_FREQUENCY)  << " to the starting simplex.");
     _opt.insert(kvToNmVector(kv));
   }
 }
 
-SelectorHMPLocalSearch::~SelectorHMPLocalSearch(){
+SelectorHMPNelderMead::~SelectorHMPNelderMead(){
   ;
 }
 
 // Vector[0] = VirtualCores-0, Vector[1]=Frequency-0, Vector[2]=VirtualCores-1, Vector[3]=Frequency-1
-KnobsValues SelectorHMPLocalSearch::nmVectorToKv(neme::Vector v) const{
+KnobsValues SelectorHMPNelderMead::nmVectorToKv(neme::Vector v) const{
   KnobsValues kv(KNOB_VALUE_RELATIVE, _configuration.getNumHMP());
   DEBUG(v[0]);
   DEBUG(v[1]);
@@ -1574,7 +1564,7 @@ KnobsValues SelectorHMPLocalSearch::nmVectorToKv(neme::Vector v) const{
   return kv;
 }
 
-neme::Vector SelectorHMPLocalSearch::kvToNmVector(KnobsValues kv) const{
+neme::Vector SelectorHMPNelderMead::kvToNmVector(KnobsValues kv) const{
   if(!kv.areRelative()){
     throw std::runtime_error("kvToNmVector only accepts relative KnobsValues");
   }
@@ -1587,7 +1577,7 @@ neme::Vector SelectorHMPLocalSearch::kvToNmVector(KnobsValues kv) const{
   return v;
 }
 
-KnobsValues SelectorHMPLocalSearch::getFirstConfiguration() const{
+KnobsValues SelectorHMPNelderMead::getFirstConfiguration() const{
   KnobsValues kv(KNOB_VALUE_REAL, _configuration.getNumHMP());
   for(size_t i = 0; i < _configuration.getNumHMP(); i++){
     kv(i, KNOB_VIRTUAL_CORES) = _p.firstConfiguration.virtualCores[i];
@@ -1596,7 +1586,7 @@ KnobsValues SelectorHMPLocalSearch::getFirstConfiguration() const{
   return kv;
 }
 
-double SelectorHMPLocalSearch::nmScore() const{
+double SelectorHMPNelderMead::nmScore() const{
   double watts = _samples->average().watts;
   double thr = _samples->average().throughput;
   double score = 0;
@@ -1623,7 +1613,7 @@ static bool validVector(const neme::Vector& v){
   return true;
 }
 
-KnobsValues SelectorHMPLocalSearch::getNextKnobsValues(){
+KnobsValues SelectorHMPNelderMead::getNextKnobsValues(){
   if(!_firstGenerated){
     _firstGenerated = true;
     return getFirstConfiguration();

@@ -268,6 +268,7 @@ void Parameters::setDefault(){
     conservativeValue = 0;
     isolateManager = false;
     statsReconfiguration = false;
+    nelderMeadRange = 2;
     perPidLog = false;
     roiFile = "";
 
@@ -629,13 +630,13 @@ ParametersValidation Parameters::validateSelector(){
     }
 
     // HMP - Local Search
-    knobsSupportSelector[STRATEGY_SELECTION_HMP_LOCALSEARCH][KNOB_VIRTUAL_CORES] = true;
-    knobsSupportSelector[STRATEGY_SELECTION_HMP_LOCALSEARCH][KNOB_FREQUENCY] = true;
-    knobsSupportSelector[STRATEGY_SELECTION_HMP_LOCALSEARCH][KNOB_MAPPING] = false;
-    knobsSupportSelector[STRATEGY_SELECTION_HMP_LOCALSEARCH][KNOB_HYPERTHREADING] = false;
-    knobsSupportSelector[STRATEGY_SELECTION_HMP_LOCALSEARCH][KNOB_CLKMOD] = false;
+    knobsSupportSelector[STRATEGY_SELECTION_HMP_NELDERMEAD][KNOB_VIRTUAL_CORES] = true;
+    knobsSupportSelector[STRATEGY_SELECTION_HMP_NELDERMEAD][KNOB_FREQUENCY] = true;
+    knobsSupportSelector[STRATEGY_SELECTION_HMP_NELDERMEAD][KNOB_MAPPING] = false;
+    knobsSupportSelector[STRATEGY_SELECTION_HMP_NELDERMEAD][KNOB_HYPERTHREADING] = false;
+    knobsSupportSelector[STRATEGY_SELECTION_HMP_NELDERMEAD][KNOB_CLKMOD] = false;
 
-    if(strategySelection == STRATEGY_SELECTION_HMP_LOCALSEARCH &&
+    if(strategySelection == STRATEGY_SELECTION_HMP_NELDERMEAD &&
        (firstConfiguration.virtualCores.empty() ||
         firstConfiguration.frequency.empty())){
         return VALIDATION_NO_FIRSTCONF_PARAMETERS;
@@ -781,7 +782,7 @@ template<> char const* enumStrings<StrategySelection>::data[] = {
     "FULLSEARCH",
     "LIMARTINEZ",
     "LEO",
-    "HMP_LOCALSEARCH",
+    "HMP_NELDERMEAD",
     "NUM" // <- Must always be the last
 };
 
@@ -895,6 +896,7 @@ void Parameters::loadXml(const string& paramFileName){
     SETVALUE(xt, ArrayUint, disallowedNumCores);
     SETVALUE(xt, Bool, isolateManager);
     SETVALUE(xt, Bool, statsReconfiguration);
+    SETVALUE(xt, Uint, nelderMeadRange);
     SETVALUE(xt, Bool, perPidLog);
     SETVALUE(xt, String, roiFile);
     SETVALUE(xt, ArrayEnums, loggersTypes);

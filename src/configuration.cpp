@@ -289,7 +289,7 @@ void Configuration::trigger(){
 ConfigurationExternal::ConfigurationExternal(const Parameters& p, uint numHMPs):
         Configuration(p, numHMPs){
     for(size_t c = 0; c < _numHMPs; c++){
-      _knobs[c][KNOB_VIRTUAL_CORES] = new KnobVirtualCores(p, _numHMPs > 1, c);
+      _knobs[c][KNOB_VIRTUAL_CORES] = new KnobVirtualCores(p, _numHMPs, c);
       _knobs[c][KNOB_HYPERTHREADING] = new KnobHyperThreading(p, _numHMPs > 1, c);
       _knobs[c][KNOB_MAPPING] = new KnobMappingExternal(p,
                                                   *dynamic_cast<KnobVirtualCores*>(_knobs[c][KNOB_VIRTUAL_CORES]),

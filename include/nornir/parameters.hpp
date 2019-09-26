@@ -163,8 +163,8 @@ typedef enum{
     // and Lafferty, John D. and Hoffmann, Henry
     STRATEGY_SELECTION_LEO,
 
-    // Local search strategy starting from a predicted optimal (for HMP systems).
-    STRATEGY_SELECTION_HMP_LOCALSEARCH,
+    // Nelder-Mead algorithm starting from a predicted optimal (for HMP systems).
+    STRATEGY_SELECTION_HMP_NELDERMEAD,
 
     STRATEGY_SELECTION_NUM // <- Must always be the last.
 }StrategySelection;
@@ -955,6 +955,9 @@ public:
     // If true, computes the statistics about the cost
     // of the reconfigurations [default = false].
     bool statsReconfiguration;
+
+    // 'Range' of the starting Nelder-Mead simplex [default = 2].
+    uint nelderMeadRange;
 
     // Parameters for dataflow applications.
     DataflowParameters dataflow;

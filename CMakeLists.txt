@@ -17,6 +17,7 @@ option (ENABLE_OMP "Enables OpenMP interaction" OFF)
 option (ENABLE_MLPACK "Enables Selectors using mlpack" ON)
 option (ENABLE_GSL "Enables Selectors using gsl" ON)
 option (ENABLE_ARMADILLO "Enables Selectors using armadillo" ON)
+option (ENABLE_DATAFLOW "Enables Dataflow interface compilation" ON)
 
 include(CheckCXXCompilerFlag)
 check_cxx_compiler_flag(-faligned-new AW)

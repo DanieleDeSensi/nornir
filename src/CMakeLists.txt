@@ -4,7 +4,11 @@
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/include/nornir/external/fastflow)
 
-file(GLOB SOURCES "*.cpp" "*.c" "dataflow/*.c*")
+file(GLOB SOURCES "*.cpp" "*.c")
+
+if(ENABLE_DATAFLOW)
+    list(APPEND SOURCES "dataflow/*.c*")
+endif(ENABLE_DATAFLOW)
 
 
 ######################
@@ -47,7 +51,7 @@ ExternalProject_Add(mammut_repo
 
 ExternalProject_Add(riff_repo
     GIT_REPOSITORY https://github.com/danieledesensi/riff
-    GIT_TAG 250c7f5
+    GIT_TAG 3e1c4f2
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     UPDATE_COMMAND ""
 )
@@ -108,13 +112,19 @@ if(ENABLE_OMP)
     set(OMP_DEP_LAUNCHER "omp_launcher")
 endif(ENABLE_OMP)
 
+# Dataflow objects
+if(ENABLE_DATAFLOW)
+    set(DATAFLOW_LIBRARIES ${PROJECT_SOURCE_DIR}/src/external/queues/hzdptr.o ${PROJECT_SOURCE_DIR}/src/external/queues/xxhash.o)
+endif(ENABLE_DATAFLOW)
+
 # Dynamic Library
 add_dependencies(nornir compile_ext mammut_repo riff_repo ${OMP_DEP} ${OMP_DEP_LAUNCHER})
-target_link_libraries(nornir riff mammut ${MLPACK_LIBRARIES} ${GSL_LIBRARY} ${ARMA_LIBRARY} Threads::Threads ${PROJECT_SOURCE_DIR}/src/external/queues/hzdptr.o ${PROJECT_SOURCE_DIR}/src/external/queues/xxhash.o) 
+target_link_libraries(nornir riff mammut ${MLPACK_LIBRARIES} ${GSL_LIBRARY} ${ARMA_LIBRARY} Threads::Threads ${DATAFLOW_LIBRARIES}) 
+
 
 # Static Library
 add_dependencies(nornir_static compile_ext mammut_repo riff_repo ${OMP_DEP} ${OMP_DEP_LAUNCHER})
-target_link_libraries(nornir_static riff_static mammut_static  ${MLPACK_LIBRARIES} ${GSL_LIBRARY} ${ARMA_LIBRARY} Threads::Threads ${PROJECT_SOURCE_DIR}/src/external/queues/hzdptr.o ${PROJECT_SOURCE_DIR}/src/external/queues/xxhash.o) 
+target_link_libraries(nornir_static riff_static mammut_static  ${MLPACK_LIBRARIES} ${GSL_LIBRARY} ${ARMA_LIBRARY} Threads::Threads ${DATAFLOW_LIBRARIES}) 
 
 
 ###########

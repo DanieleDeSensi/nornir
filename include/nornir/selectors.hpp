@@ -613,7 +613,7 @@ public:
     KnobsValues getNextKnobsValues();
 };
 
-class SelectorHMPLocalSearch: public Selector{
+class SelectorHMPNelderMead: public Selector{
 private:
     neme::NelderMeadOptimizer _opt;
     KnobsValues nmVectorToKv(neme::Vector v) const;
@@ -625,10 +625,10 @@ private:
 protected:
     bool isMaxPerformanceConfiguration() const{return false;} // Never used by this selector
 public:
-  SelectorHMPLocalSearch(const Parameters& p,
+  SelectorHMPNelderMead(const Parameters& p,
                          const Configuration& configuration,
                          const Smoother<MonitoredSample>* samples);
-  ~SelectorHMPLocalSearch();
+  ~SelectorHMPNelderMead();
 
   KnobsValues getNextKnobsValues();
 };

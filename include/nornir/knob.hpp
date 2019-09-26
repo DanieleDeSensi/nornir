@@ -139,7 +139,7 @@ private:
 protected:
     Parameters _p;
 public:
-    explicit KnobVirtualCores(Parameters p, bool hmp = false, uint cpuId = 0);
+    explicit KnobVirtualCores(Parameters p, uint numHMP = 1, uint cpuId = 0);
     void changeValue(double v);
     /**
      * Changes the maximum allowed value for this knob.

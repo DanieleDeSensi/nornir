@@ -191,19 +191,24 @@ std::vector<double> Knob::getAllowedValues() const{
     return _knobValues;
 }
 
-KnobVirtualCores::KnobVirtualCores(Parameters p, bool hmp, uint cpuId):_cpuId(cpuId), _p(p){
+KnobVirtualCores::KnobVirtualCores(Parameters p, uint numHMP, uint cpuId):_cpuId(cpuId), _p(p){
+    bool isHMP = numHMP > 1;
     size_t numVirtualCores = 0;
     if(_p.activeThreads){
-        numVirtualCores = _p.activeThreads;
+        if(isHMP){
+          numVirtualCores = std::ceil(_p.activeThreads / (double) numHMP);
+        }else{
+          numVirtualCores = _p.activeThreads;
+        }
     }else{
         if(_p.knobHyperthreadingEnabled){
-          if(hmp){
+          if(isHMP){
             numVirtualCores = _p.mammut.getInstanceTopology()->getCpu(cpuId)->getVirtualCores().size();
           }else{
             numVirtualCores = _p.mammut.getInstanceTopology()->getVirtualCores().size();
           }
         }else{
-          if(hmp){
+          if(isHMP){
             numVirtualCores = _p.mammut.getInstanceTopology()->getCpu(cpuId)->getPhysicalCores().size();
           }else{
             numVirtualCores = _p.mammut.getInstanceTopology()->getPhysicalCores().size();

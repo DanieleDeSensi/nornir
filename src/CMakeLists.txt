@@ -7,7 +7,8 @@ include_directories(${PROJECT_SOURCE_DIR}/include/nornir/external/fastflow)
 file(GLOB SOURCES "*.cpp" "*.c")
 
 if(ENABLE_DATAFLOW)
-    list(APPEND SOURCES "dataflow/*.c*")
+    file(GLOB SOURCES_DF "dataflow/*.c*")
+    list(APPEND SOURCES ${SOURCES_DF})
 endif(ENABLE_DATAFLOW)
 
 

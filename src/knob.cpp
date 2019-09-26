@@ -93,6 +93,48 @@ bool Knob::getRealFromRelative(double relative, double& real) const{
     }
 }
 
+double Knob::getRelativeFromReal(double real) const{
+  vector<double> values = getAllowedValues();
+  for(size_t i = 0; i < values.size(); i++){
+    if(values[i] == real){
+      return (((double) i) / values.size()) * 100.0;
+    }
+  }
+  return -1;
+}
+
+double Knob::getPreviousRealValue(double realValue, uint step) const{
+  vector<double> values = getAllowedValues();
+  for(size_t i = 0; i < values.size(); i++){
+    if(values[i] == realValue){
+      if(i >= step){
+        return values[i - step];
+      }else{
+        return values[0];
+      }
+    }
+  }
+  std::ostringstream strs;
+  strs << realValue;
+  throw std::runtime_error("getPreviousRealValue called with non-existing real value " + strs.str());
+}
+
+double Knob::getNextRealValue(double realValue, uint step) const{
+  vector<double> values = getAllowedValues();
+  for(size_t i = 0; i < values.size(); i++){
+    if(values[i] == realValue){
+      if(i + step < values.size()){
+        return values[i + step];
+      }else{
+        return values[values.size() - 1];
+      }
+    }
+  }
+  std::ostringstream strs;
+  strs << realValue;
+  throw std::runtime_error("getNextRealValue called with non-existing real value " + strs.str());
+}
+
 void Knob::setRelativeValue(double v){
     double real;
     if(getRealFromRelative(v, real)){
@@ -149,15 +191,28 @@ std::vector<double> Knob::getAllowedValues() const{
     return _knobValues;
 }
 
-KnobVirtualCores::KnobVirtualCores(Parameters p):_p(p){
+KnobVirtualCores::KnobVirtualCores(Parameters p, uint numHMP, uint cpuId):_cpuId(cpuId), _p(p){
+    bool isHMP = numHMP > 1;
     size_t numVirtualCores = 0;
     if(_p.activeThreads){
-        numVirtualCores = _p.activeThreads;
+        if(isHMP){
+          numVirtualCores = std::ceil(_p.activeThreads / (double) numHMP);
+        }else{
+          numVirtualCores = _p.activeThreads;
+        }
     }else{
         if(_p.knobHyperthreadingEnabled){
+          if(isHMP){
+            numVirtualCores = _p.mammut.getInstanceTopology()->getCpu(cpuId)->getVirtualCores().size();
+          }else{
             numVirtualCores = _p.mammut.getInstanceTopology()->getVirtualCores().size();
+          }
         }else{
+          if(isHMP){
+            numVirtualCores = _p.mammut.getInstanceTopology()->getCpu(cpuId)->getPhysicalCores().size();
+          }else{
             numVirtualCores = _p.mammut.getInstanceTopology()->getPhysicalCores().size();
+          }
         }
     }
     changeMax(numVirtualCores);
@@ -366,9 +421,9 @@ std::vector<AdaptiveNode*> KnobVirtualCoresPipe::getActiveWorkers() const{
     return r;
 }
 
-KnobHyperThreading::KnobHyperThreading(Parameters p){
+KnobHyperThreading::KnobHyperThreading(Parameters p, bool hmp, uint cpuId){
     vector<PhysicalCore*> physical = p.mammut.getInstanceTopology()->getPhysicalCores();
-    size_t maxHtLevel = physical.at(0)->getVirtualCores().size();
+    size_t maxHtLevel = physical.at(cpuId)->getVirtualCores().size();
     for(size_t i = 0; i < maxHtLevel; i++){
         _knobValues.push_back(i + 1);
     }
@@ -379,10 +434,13 @@ void KnobHyperThreading::changeValue(double v){;}
 
 KnobMapping::KnobMapping(const Parameters& p,
                          const KnobVirtualCores& knobCores,
-                         const KnobHyperThreading& knobHyperThreading):
+                         const KnobHyperThreading& knobHyperThreading,
+                         bool hmp, uint cpuId):
          _p(p),
          _knobCores(knobCores),
          _knobHyperThreading(knobHyperThreading),
+         _hmp(hmp),
+         _cpuId(cpuId),
          _topologyHandler(p.mammut.getInstanceTopology()){
     for(size_t i = 0; i < MAPPING_TYPE_NUM; i++){
         _knobValues.push_back((MappingType) i);
@@ -400,7 +458,7 @@ void KnobMapping::changeValue(double v){
     DEBUG("[Mapping] Changing real value to: " << enumToString<MappingType>((MappingType)v));
 
     // Its length will be equal to _knobCores.getRealValue()
-    vector<VirtualCore*> vcOrder;
+    vector<VirtualCoreId> vcOrder;
     switch((MappingType) v){
         case MAPPING_TYPE_LINEAR:{
             vcOrder = computeVcOrderLinear();
@@ -414,12 +472,20 @@ void KnobMapping::changeValue(double v){
     }
 
     /** Performs mapping. **/
-    _activeVirtualCores = vcOrder;
+    _activeVirtualCores.clear();
+    for(auto id : vcOrder){
+      _activeVirtualCores.push_back(_topologyHandler->getVirtualCore(id));
+    }
     move(vcOrder);
 
     /** Updates unused virtual cores. **/
     _unusedVirtualCores.clear();
-    vector<VirtualCore*> allVcs = _topologyHandler->getVirtualCores();
+    vector<VirtualCore*> allVcs;
+    if(!_hmp){
+      allVcs = _topologyHandler->getVirtualCores();
+    }else{
+      allVcs = _topologyHandler->getCpus()[_cpuId]->getVirtualCores();
+    }
     for(size_t i = 0; i < allVcs.size(); i++){
         VirtualCore* vc = allVcs.at(i);
         if(!contains(_activeVirtualCores, vc)){
@@ -459,25 +525,28 @@ size_t KnobMapping::getNumVirtualCores(){
     return _knobCores.getRealValue();
 }
 
-vector<VirtualCore*> KnobMapping::computeVcOrderLinear(){
+std::vector<mammut::topology::VirtualCoreId> KnobMapping::computeVcOrderLinear(){
    /*
     * Generates a vector of virtual cores to be used for linear
     * mapping. It contains first one virtual core per physical
     * core (virtual cores on the same CPU are consecutive).
     * Then, the other groups of virtual cores follow.
     */
-    vector<VirtualCore*> vcOrder;
+    vector<VirtualCoreId> vcOrder;
     size_t virtualPerPhysical = _knobHyperThreading.getRealValue();
 
     vector<Cpu*> cpus = _topologyHandler->getCpus();
     for(size_t k = 0; k < virtualPerPhysical; k++){
         for(size_t i = 0; i < cpus.size(); i++){
+            if(_hmp && i != _cpuId){
+              continue;
+            }
             vector<PhysicalCore*> phyCores = cpus.at(i)->getPhysicalCores();
             for(size_t j = 0; j < phyCores.size(); j++){
                 vector<VirtualCore*> virtCores = phyCores.at(j)->getVirtualCores();
                 if((!_p.isolateManager || virtCores.at(k)->getVirtualCoreId() != NORNIR_MANAGER_VIRTUAL_CORE) &&
                     isAllowed(virtCores.at(k))){
-                    vcOrder.push_back(virtCores.at(k));
+                    vcOrder.push_back(virtCores.at(k)->getVirtualCoreId());
                     if(vcOrder.size() == getNumVirtualCores()){
                         return vcOrder;
                     }
@@ -488,23 +557,26 @@ vector<VirtualCore*> KnobMapping::computeVcOrderLinear(){
     return vcOrder;
 }
 
-vector<VirtualCore*> KnobMapping::computeVcOrderInterleaved(){
+std::vector<mammut::topology::VirtualCoreId> KnobMapping::computeVcOrderInterleaved(){
    /*
     * Generates a vector of virtual cores to be used for interleaved
     * mapping.
     */
-    vector<VirtualCore*> vcOrder;
+    vector<VirtualCoreId> vcOrder;
     size_t virtualPerPhysical = _knobHyperThreading.getRealValue();
     vector<Cpu*> cpus = _topologyHandler->getCpus();
     size_t physicalPerCpu = cpus[0]->getPhysicalCores().size();
     for(size_t k = 0; k < virtualPerPhysical; k++){
         for(size_t j = 0; j < physicalPerCpu; j++){
             for(size_t i = 0; i < cpus.size(); i++){
+                if(_hmp && i != _cpuId){
+                  continue;
+                }
                 vector<PhysicalCore*> phyCores = cpus.at(i)->getPhysicalCores();
                 vector<VirtualCore*> virtCores = phyCores.at(j)->getVirtualCores();
                 if((!_p.isolateManager || virtCores.at(k)->getVirtualCoreId() != NORNIR_MANAGER_VIRTUAL_CORE) &&
                     isAllowed(virtCores.at(k))){
-                    vcOrder.push_back(virtCores.at(k));
+                    vcOrder.push_back(virtCores.at(k)->getVirtualCoreId());
                     if(vcOrder.size() == getNumVirtualCores()){
                         return vcOrder;
                     }
@@ -517,8 +589,8 @@ vector<VirtualCore*> KnobMapping::computeVcOrderInterleaved(){
 
 KnobMappingExternal::KnobMappingExternal(const Parameters& p,
             const KnobVirtualCores& knobCores,
-            const KnobHyperThreading& knobHyperThreading):
-        KnobMapping(p, knobCores, knobHyperThreading), _processHandler(NULL){
+            const KnobHyperThreading& knobHyperThreading, bool hmp, uint cpuId):
+        KnobMapping(p, knobCores, knobHyperThreading, hmp, cpuId), _processHandler(NULL){
     ;
 }
 
@@ -533,9 +605,19 @@ void KnobMappingExternal::setProcessHandler(task::ProcessHandler* processHandler
     _processHandler = processHandler;
 }
 
-void KnobMappingExternal::move(const vector<VirtualCore*>& vcOrder){
+void KnobMappingExternal::move(const std::vector<mammut::topology::VirtualCoreId> &vcOrder){
     if(_processHandler){
-        _processHandler->move(vcOrder);
+        if(_cpuId == 0){
+          _processHandler->move(vcOrder);
+        }else{
+          if(!_hmp){
+            throw std::runtime_error("move called on cpuId != 0 but no HMP.");
+          }
+          std::vector<mammut::topology::VirtualCoreId> old;
+          _processHandler->getVirtualCoreIds(old);
+          old.insert(old.end(), vcOrder.begin(), vcOrder.end());
+          _processHandler->move(old);
+        }
     }else{
         throw std::runtime_error("setPid or setProcessHandler must be called "
                                  "before using KnobMappingExternal.");
@@ -546,10 +628,12 @@ KnobMappingFarm::KnobMappingFarm(const Parameters& p,
             const KnobVirtualCoresFarm& knobCores,
             const KnobHyperThreading& knobHyperThreading,
             AdaptiveNode* emitter,
-            AdaptiveNode* collector):
-        KnobMapping(p, knobCores, knobHyperThreading), _emitter(emitter),
+            AdaptiveNode* collector, bool hmp, uint cpuId):
+        KnobMapping(p, knobCores, knobHyperThreading, hmp, cpuId), _emitter(emitter),
         _collector(collector){
-    ;
+  if(hmp){
+    throw std::runtime_error("HMP not supported for KnobMappingFarm.");
+  }
 }
 
 size_t KnobMappingFarm::getNumVirtualCores(){
@@ -559,7 +643,7 @@ size_t KnobMappingFarm::getNumVirtualCores(){
     return v;
 }
 
-void KnobMappingFarm::move(const vector<VirtualCore*>& vcOrder){
+void KnobMappingFarm::move(const std::vector<mammut::topology::VirtualCoreId> &vcOrder){
     vector<AdaptiveNode*> workers = ((KnobVirtualCoresFarm*) &_knobCores)->getActiveWorkers();
     size_t numServiceNodes = 0;
     if(_emitter) ++numServiceNodes;
@@ -592,14 +676,14 @@ void KnobMappingFarm::move(const vector<VirtualCore*>& vcOrder){
     }
 }
 
-KnobFrequency::KnobFrequency(Parameters p, const KnobMapping& knobMapping):
+KnobFrequency::KnobFrequency(Parameters p, const KnobMapping& knobMapping, bool hmp, uint cpuId):
         _p(p),
         _knobMapping(knobMapping),
         _frequencyHandler(_p.mammut.getInstanceCpuFreq()),
         _topologyHandler(_p.mammut.getInstanceTopology()){
     _frequencyHandler->removeTurboFrequencies();
     std::vector<mammut::cpufreq::Frequency> availableFrequencies;
-    availableFrequencies = _frequencyHandler->getDomains().at(0)->getAvailableFrequencies();
+    availableFrequencies = _frequencyHandler->getDomains()[cpuId]->getAvailableFrequencies();
 
     if(_p.knobFrequencyEnabled){
         if(availableFrequencies.empty()){
@@ -607,7 +691,11 @@ KnobFrequency::KnobFrequency(Parameters p, const KnobMapping& knobMapping):
                                      "knobFrequencyEnabled to false.");
         }else{
             std::vector<mammut::cpufreq::Domain*> scalableDomains;
-            scalableDomains = _frequencyHandler->getDomains();
+            if(hmp){
+              scalableDomains.push_back(_frequencyHandler->getDomains()[cpuId]);
+            }else{
+              scalableDomains = _frequencyHandler->getDomains();
+            }
             for(Domain* currentDomain : scalableDomains){
                 if(!currentDomain->setGovernor(GOVERNOR_USERSPACE)){
                     throw runtime_error("KnobFrequency: Impossible "
@@ -670,7 +758,6 @@ void KnobFrequency::applyUnusedVCStrategySame(const vector<VirtualCore*>& unused
     }
 }
 
-
 void KnobFrequency::applyUnusedVCStrategyOff(const vector<VirtualCore*>& unusedVc){
     for(size_t i = 0; i < unusedVc.size(); i++){
         VirtualCore* vc = unusedVc.at(i);
@@ -718,8 +805,8 @@ void KnobFrequency::applyUnusedVCStrategy(Frequency v){
     }
 }
 
-KnobClkMod::KnobClkMod(Parameters p, const KnobMapping& knobMapping):_knobMapping(knobMapping){
-    for(double d : p.mammut.getInstanceTopology()->getCpus().front()->getClockModulationValues()){
+KnobClkMod::KnobClkMod(Parameters p, const KnobMapping& knobMapping, bool hmp, uint cpuId):_knobMapping(knobMapping){
+    for(double d : p.mammut.getInstanceTopology()->getCpus()[cpuId]->getClockModulationValues()){
         _knobValues.push_back(d);
     }
     _realValue = 100.0;

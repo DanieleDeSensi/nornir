@@ -51,6 +51,22 @@ public:
      */
     bool getRealFromRelative(double relative, double& real) const;
 
+    double getRelativeFromReal(double real) const;
+
+    /**
+     * @brief Returns the real value which is 'step' steps behind the given value.
+     * @param step The lenght of the step.
+     * @return The real value which is 'step' steps behind the given value.
+     */
+    double getPreviousRealValue(double realValue, uint step) const;
+
+    /**
+     * @brief Returns the real value which is 'step' steps ahead the given value.
+     * @param step The lenght of the step.
+     * @return The real value which is 'step' steps ahead the given value.
+     */
+    double getNextRealValue(double realValue, uint step) const;
+
     /**
      * Changes the value of this knob.
      * @param v Is a value in the range [0, 100], representing the value to be
@@ -117,10 +133,13 @@ protected:
 };
 
 class KnobVirtualCores: public Knob{
+private:
+    bool _hmp;
+    uint _cpuId;
 protected:
     Parameters _p;
 public:
-    explicit KnobVirtualCores(Parameters p);
+    explicit KnobVirtualCores(Parameters p, uint numHMP = 1, uint cpuId = 0);
     void changeValue(double v);
     /**
      * Changes the maximum allowed value for this knob.
@@ -198,7 +217,7 @@ private:
 
 class KnobHyperThreading: public Knob{
 public:
-    explicit KnobHyperThreading(Parameters p);
+    explicit KnobHyperThreading(Parameters p, bool hmp = false, uint cpuId = 0);
     void changeValue(double v);
 };
 
@@ -214,10 +233,12 @@ class KnobMapping: public Knob{
 public:
     KnobMapping(const Parameters& p,
                 const KnobVirtualCores& knobCores,
-                const KnobHyperThreading& knobHyperThreading);
+                const KnobHyperThreading& knobHyperThreading,
+                bool hmp = false, uint cpuId = 0);
+
     void changeValue(double v);
 
-    virtual void move(const std::vector<mammut::topology::VirtualCore*>& vcOrder) = 0;
+    virtual void move(const std::vector<mammut::topology::VirtualCoreId>& vcOrder) = 0;
 
     void setAllowedCores(std::vector<mammut::topology::VirtualCore*> vc);
 
@@ -231,6 +252,8 @@ protected:
     const Parameters& _p;
     const KnobVirtualCores& _knobCores;
     const KnobHyperThreading& _knobHyperThreading;
+    const bool _hmp;
+    const uint _cpuId;
 
     virtual size_t getNumVirtualCores();
 private:
@@ -239,8 +262,8 @@ private:
     mammut::topology::Topology* _topologyHandler;
     std::vector<mammut::topology::VirtualCore*> _allowedVirtualCores;
 
-    std::vector<mammut::topology::VirtualCore*> computeVcOrderLinear();
-    std::vector<mammut::topology::VirtualCore*> computeVcOrderInterleaved();
+    std::vector<mammut::topology::VirtualCoreId> computeVcOrderLinear();
+    std::vector<mammut::topology::VirtualCoreId> computeVcOrderInterleaved();
 };
 
 class KnobMappingExternal: public KnobMapping{
@@ -248,12 +271,13 @@ private:
     mammut::task::ProcessHandler* _processHandler;
 public:
     KnobMappingExternal(const Parameters& p,
-                const KnobVirtualCores& knobCores,
-                const KnobHyperThreading& knobHyperThreading);
+                        const KnobVirtualCores& knobCores,
+                        const KnobHyperThreading& knobHyperThreading,
+                        bool hmp = false, uint cpuId = 0);
 
     void setPid(pid_t pid);
     void setProcessHandler(mammut::task::ProcessHandler* processHandler);
-    void move(const std::vector<mammut::topology::VirtualCore*>& vcOrder);
+    void move(const std::vector<mammut::topology::VirtualCoreId>& vcOrder);
 };
 
 class KnobMappingFarm: public KnobMapping{
@@ -267,14 +291,15 @@ public:
                 const KnobVirtualCoresFarm& knobCores,
                 const KnobHyperThreading& knobHyperThreading,
                 AdaptiveNode* emitter,
-                AdaptiveNode* collector);
+                AdaptiveNode* collector,
+                bool hmp = false, uint cpuId = 0);
 
-    void move(const std::vector<mammut::topology::VirtualCore*>& vcOrder);
+    void move(const std::vector<mammut::topology::VirtualCoreId>& vcOrder);
 };
 
 class KnobFrequency: public Knob{
 public:
-    KnobFrequency(Parameters p, const KnobMapping& knobMapping);
+    KnobFrequency(Parameters p, const KnobMapping& knobMapping, bool hmp = false, uint cpuId = 0);
     ~KnobFrequency();
     void changeValue(double v);
 private:
@@ -293,7 +318,7 @@ class KnobClkMod: public Knob{
 private:
     const KnobMapping& _knobMapping;
 public:
-    explicit KnobClkMod(Parameters p, const KnobMapping& knobMapping);
+    explicit KnobClkMod(Parameters p, const KnobMapping& knobMapping, bool hmp = false, uint cpuId = 0);
     void changeValue(double v);
 };
 
@@ -324,52 +349,80 @@ std::string knobTypeToString(KnobType kv);
 class KnobsValues{
 private:
     KnobValueType _type;
-    double _values[KNOB_NUM];
+    std::vector<std::array<double, KNOB_NUM>> _values; // _values[cpuId][KNOB_FREQUENCY]
 public:
-    inline void reset(){
-        for(size_t i = 0; i < KNOB_NUM; i++){
-            _values[i] = 0;
+    virtual void reset(){
+        for(auto v : _values){
+          for(size_t i = 0; i < KNOB_NUM; i++){
+              v[i] = 0;
+          }
         }
     }
 
-    explicit KnobsValues(KnobValueType type = KNOB_VALUE_UNDEF):_type(type){
+    /**
+     * @brief KnobsValues
+     * @param type
+     * @param numCpus If > 1, values are set per CPU (useful for HMP).
+     */
+    explicit KnobsValues(KnobValueType type = KNOB_VALUE_UNDEF,
+                         uint numCpus = 1):_type(type){
+        _values.resize(numCpus);
         reset();
     }
 
-    void swap(KnobsValues& x){
+    virtual void swap(KnobsValues& x){
         using std::swap;
 
         swap(_type, x._type);
         swap(_values, x._values);
     }
 
-    inline KnobsValues(const KnobsValues& other){
+    KnobsValues(const KnobsValues& other){
         _type = other._type;
-        for(size_t i = 0; i < KNOB_NUM; i++){
-            _values[i] = other._values[i];
+        _values.resize(other._values.size());
+        for(uint cpuId = 0; cpuId < _values.size(); cpuId++){
+          for(size_t i = 0; i < KNOB_NUM; i++){
+            _values[cpuId][i] = other._values[cpuId][i];
+          }
         }
     }
 
-    inline KnobsValues& operator=(KnobsValues other){
+    virtual KnobsValues& operator=(KnobsValues other){
         swap(other);
         return *this;
     }
 
-    inline bool areUndefined() const{return _type == KNOB_VALUE_UNDEF;}
+    virtual bool numCpus() const{return _values.size();}
 
-    inline bool areRelative() const{return _type == KNOB_VALUE_RELATIVE;}
+    virtual bool areUndefined() const{return _type == KNOB_VALUE_UNDEF;}
 
-    inline bool areReal() const{return _type == KNOB_VALUE_REAL;}
+    virtual bool areRelative() const{return _type == KNOB_VALUE_RELATIVE;}
 
-    inline double& operator[](KnobType idx){
-        return _values[idx];
+    virtual  bool areReal() const{return _type == KNOB_VALUE_REAL;}
+
+    virtual double& operator[](KnobType idx){
+        if(_values.size() > 1){
+          throw std::runtime_error("operator[] cannot be used on HMP systems. Please use operator() instead.");
+        }
+        return _values[0][idx];
     }
 
-    inline double operator[](KnobType idx) const{
-        return _values[idx];
+    virtual double operator[](KnobType idx) const{
+        if(_values.size() > 1){
+          throw std::runtime_error("operator[] cannot be used on HMP systems. Please use operator() instead.");
+        }
+        return _values[0][idx];
+    }
+
+
+    virtual double& operator()(uint cpuId, KnobType idx){
+      return _values[cpuId][idx];
+    }
+
+    virtual double operator()(uint cpuId, KnobType idx) const{
+      return _values[cpuId][idx];
     }
 };
-
 
 inline std::ostream& operator<<(std::ostream& os, const KnobsValues& obj){
     os << "[";
@@ -393,8 +446,7 @@ inline std::istream& operator>>(std::istream& is, KnobsValues& sample){
 inline bool operator==(const KnobsValues& lhs,
                        const KnobsValues& rhs){
     for(size_t i = 0; i < KNOB_NUM; i++){
-        if(lhs[(KnobType) i] !=
-           rhs[(KnobType) i]){
+        if(lhs[(KnobType) i] != rhs[(KnobType) i]){
             return false;
         }
     }
@@ -409,11 +461,9 @@ inline bool operator!=(const KnobsValues& lhs,
 inline bool operator<(const KnobsValues& lhs,
                       const KnobsValues& rhs){
     for(size_t i = 0; i < KNOB_NUM; i++){
-        if(lhs[(KnobType) i] <
-           rhs[(KnobType) i]){
+        if(lhs[(KnobType) i] < rhs[(KnobType) i]){
             return true;
-        }else if(lhs[(KnobType) i] >
-                 rhs[(KnobType) i]){
+        }else if(lhs[(KnobType) i] > rhs[(KnobType) i]){
             return false;
         }
     }

@@ -24,7 +24,6 @@
  *
  * =========================================================================
  */
-
 #include <nornir/selectors.hpp>
 #include <nornir/utils.hpp>
 #include <riff/external/cppnanomsg/nn.hpp>
@@ -914,7 +913,7 @@ std::unique_ptr<Predictor> SelectorLearner::getPredictor(PredictorType type,
 #ifdef ENABLE_ARMADILLO
                     predictor = new PredictorLeo(type, p, configuration, samples);
 #else
-              throw std::runtime_error("Please recompile with -DENABLE_ARMADILLO=ON to use the required predictor.");
+                    throw std::runtime_error("Please recompile with -DENABLE_ARMADILLO=ON to use the required predictor.");
 #endif
                 }break;
                 case STRATEGY_PREDICTION_PERFORMANCE_SMT:{
@@ -1502,6 +1501,134 @@ changeworkers:
         }
     }
     return kv;
+}
+
+SelectorHMPNelderMead::SelectorHMPNelderMead(const Parameters& p,
+                       const Configuration& configuration,
+                       const Smoother<MonitoredSample>* samples):
+    Selector(p, configuration, samples),
+    _opt(configuration.getNumHMP()*2),
+    _firstGenerated(false){
+  KnobsValues firstReal = getFirstConfiguration();
+  KnobsValues firstRelative(KNOB_VALUE_RELATIVE, _configuration.getNumHMP());
+
+  for(size_t i = 0; i < _configuration.getNumHMP(); i++){
+    KnobVirtualCores* kCores = dynamic_cast<KnobVirtualCores*>(_configuration.getKnob(i, KNOB_VIRTUAL_CORES));
+    KnobFrequency* kFrequency = dynamic_cast<KnobFrequency*>(_configuration.getKnob(i, KNOB_FREQUENCY));
+    firstRelative(i, KNOB_VIRTUAL_CORES) = kCores->getRelativeFromReal(firstReal(i, KNOB_VIRTUAL_CORES));
+    firstRelative(i, KNOB_FREQUENCY) = kFrequency->getRelativeFromReal(firstReal(i, KNOB_FREQUENCY));
+  }
+  _opt.insert(kvToNmVector(firstRelative));
+  _lastRelative = firstRelative;
+
+  for(size_t i = 0; i < _configuration.getNumHMP(); i++){
+    KnobVirtualCores* kCores = dynamic_cast<KnobVirtualCores*>(_configuration.getKnob(i, KNOB_VIRTUAL_CORES));
+    KnobFrequency* kFrequency = dynamic_cast<KnobFrequency*>(_configuration.getKnob(i, KNOB_FREQUENCY));
+
+    KnobsValues kv = firstRelative;
+    double realCores = kCores->getNextRealValue(firstReal(i, KNOB_VIRTUAL_CORES), _p.nelderMeadRange);
+    double realFrequency = kFrequency->getNextRealValue(firstReal(i, KNOB_FREQUENCY), _p.nelderMeadRange);
+    kv(i, KNOB_VIRTUAL_CORES) = kCores->getRelativeFromReal(realCores);
+    kv(i, KNOB_FREQUENCY) = kFrequency->getRelativeFromReal(realFrequency);
+    DEBUG("Adding " <<  kv(0, KNOB_VIRTUAL_CORES) << ", " << kv(0, KNOB_FREQUENCY) << "|" << kv(1, KNOB_VIRTUAL_CORES) << ", " << kv(1, KNOB_FREQUENCY)  << " to the starting simplex.");
+    _opt.insert(kvToNmVector(kv));
+
+
+    kv = firstRelative;
+    realCores = kCores->getPreviousRealValue(firstReal(i, KNOB_VIRTUAL_CORES), _p.nelderMeadRange);
+    realFrequency = kFrequency->getPreviousRealValue(firstReal(i, KNOB_FREQUENCY), _p.nelderMeadRange);
+    kv(i, KNOB_VIRTUAL_CORES) = kCores->getRelativeFromReal(realCores);
+    kv(i, KNOB_FREQUENCY) = kFrequency->getRelativeFromReal(realFrequency);
+    DEBUG("Adding " <<  kv(0, KNOB_VIRTUAL_CORES) << ", " << kv(0, KNOB_FREQUENCY) << "|" << kv(1, KNOB_VIRTUAL_CORES) << ", " << kv(1, KNOB_FREQUENCY)  << " to the starting simplex.");
+    _opt.insert(kvToNmVector(kv));
+  }
+}
+
+SelectorHMPNelderMead::~SelectorHMPNelderMead(){
+  ;
+}
+
+// Vector[0] = VirtualCores-0, Vector[1]=Frequency-0, Vector[2]=VirtualCores-1, Vector[3]=Frequency-1
+KnobsValues SelectorHMPNelderMead::nmVectorToKv(neme::Vector v) const{
+  KnobsValues kv(KNOB_VALUE_RELATIVE, _configuration.getNumHMP());
+  DEBUG(v[0]);
+  DEBUG(v[1]);
+  DEBUG(v[2]);
+  DEBUG(v[3]);
+  for(uint i = 0; i < _configuration.getNumHMP(); i++){
+    kv(i, KNOB_VIRTUAL_CORES) = v[i*2];
+    kv(i, KNOB_FREQUENCY) = v[i*2 + 1];
+  }
+  return kv;
+}
+
+neme::Vector SelectorHMPNelderMead::kvToNmVector(KnobsValues kv) const{
+  if(!kv.areRelative()){
+    throw std::runtime_error("kvToNmVector only accepts relative KnobsValues");
+  }
+  neme::Vector v;
+  v.prepare(_configuration.getNumHMP() * 2); // We currently support only cores + frequency
+  for(uint i = 0; i < _configuration.getNumHMP(); i++){
+    v[i*2] = kv(i, KNOB_VIRTUAL_CORES);
+    v[i*2 + 1] = kv(i, KNOB_FREQUENCY);
+  }
+  return v;
+}
+
+KnobsValues SelectorHMPNelderMead::getFirstConfiguration() const{
+  KnobsValues kv(KNOB_VALUE_REAL, _configuration.getNumHMP());
+  for(size_t i = 0; i < _configuration.getNumHMP(); i++){
+    kv(i, KNOB_VIRTUAL_CORES) = _p.firstConfiguration.virtualCores[i];
+    kv(i, KNOB_FREQUENCY) = _p.firstConfiguration.frequency[i];
+  }
+  return kv;
+}
+
+double SelectorHMPNelderMead::nmScore() const{
+  double watts = _samples->average().watts;
+  double thr = _samples->average().throughput;
+  double score = 0;
+
+  if(_p.requirements.powerConsumption != NORNIR_REQUIREMENT_UNDEF && _p.requirements.powerConsumption != NORNIR_REQUIREMENT_MIN){
+    score += (_p.requirements.powerConsumption - watts) / _p.requirements.powerConsumption;
+  }
+  if(_p.requirements.throughput != NORNIR_REQUIREMENT_UNDEF && _p.requirements.throughput != NORNIR_REQUIREMENT_MAX){
+    score += (thr - _p.requirements.throughput) / _p.requirements.throughput;
+  }
+#ifdef DEBUG_SELECTORS
+  KnobsValues kv = _configuration.getRealValues();
+#endif
+  DEBUG("Current values: " << kv(0, KNOB_VIRTUAL_CORES) << ", " << kv(0, KNOB_FREQUENCY) << "|" << kv(1, KNOB_VIRTUAL_CORES) << ", " << kv(1, KNOB_FREQUENCY) << " score " << score);
+  return score;
+}
+
+static bool validVector(const neme::Vector& v){
+  for(int i = 0; i < v.dimension(); i++){
+    if(v.at(i) < 0 || v.at(i) > 100){
+      return false;
+    }
+  }
+  return true;
+}
+
+KnobsValues SelectorHMPNelderMead::getNextKnobsValues(){
+  if(!_firstGenerated){
+    _firstGenerated = true;
+    return getFirstConfiguration();
+  }else{
+    if(_opt.done()){
+      return _configuration.getRealValues();
+    }else{
+      neme::Vector vIn = kvToNmVector(_lastRelative);
+      neme::Vector vOut = _opt.step(vIn, nmScore());
+      while(!validVector(vOut)){
+	DEBUG("Skipping [" << vOut[0] << " " << vOut[1] << " " << vOut[2] << " " << vOut[3] << "]");
+	vOut = _opt.step(vOut, std::numeric_limits<float>::lowest());
+      }
+      _lastRelative = nmVectorToKv(vOut);
+      return _lastRelative;
+    }
+  }
 }
 
 }

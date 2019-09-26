@@ -36,4 +36,6 @@ add_executable(pipe_ffcompat pipe_ffcompat.cpp)
 target_link_libraries(pipe_ffcompat LINK_PUBLIC nornir)
 target_include_directories(pipe_ffcompat PUBLIC ${PROJECT_SOURCE_DIR}/include/nornir/external/fastflow/)
 
-add_subdirectory(dataflow)
+if(ENABLE_DATAFLOW)
+    add_subdirectory(dataflow)
+endif(ENABLE_DATAFLOW)

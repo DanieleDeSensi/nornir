@@ -268,6 +268,7 @@ void Parameters::setDefault(){
     conservativeValue = 0;
     isolateManager = false;
     statsReconfiguration = false;
+    nelderMeadRange = 2;
     perPidLog = false;
     roiFile = "";
 
@@ -628,6 +629,23 @@ ParametersValidation Parameters::validateSelector(){
         return VALIDATION_NO_LEO_PARAMETERS;
     }
 
+    // HMP - Local Search
+    knobsSupportSelector[STRATEGY_SELECTION_HMP_NELDERMEAD][KNOB_VIRTUAL_CORES] = true;
+    knobsSupportSelector[STRATEGY_SELECTION_HMP_NELDERMEAD][KNOB_FREQUENCY] = true;
+    knobsSupportSelector[STRATEGY_SELECTION_HMP_NELDERMEAD][KNOB_MAPPING] = false;
+    knobsSupportSelector[STRATEGY_SELECTION_HMP_NELDERMEAD][KNOB_HYPERTHREADING] = false;
+    knobsSupportSelector[STRATEGY_SELECTION_HMP_NELDERMEAD][KNOB_CLKMOD] = false;
+
+    if(strategySelection == STRATEGY_SELECTION_HMP_NELDERMEAD &&
+       (firstConfiguration.virtualCores.empty() ||
+        firstConfiguration.frequency.empty())){
+        return VALIDATION_NO_FIRSTCONF_PARAMETERS;
+    }
+
+    if(! (firstConfiguration.frequency.size() == firstConfiguration.virtualCores.size())){
+      return VALIDATION_NO;
+    }
+
 
     if(strategySelection != STRATEGY_SELECTION_LEARNING){
         // Check if the knob enabled can be managed by the selector specified.
@@ -764,6 +782,7 @@ template<> char const* enumStrings<StrategySelection>::data[] = {
     "FULLSEARCH",
     "LIMARTINEZ",
     "LEO",
+    "HMP_NELDERMEAD",
     "NUM" // <- Must always be the last
 };
 
@@ -877,6 +896,7 @@ void Parameters::loadXml(const string& paramFileName){
     SETVALUE(xt, ArrayUint, disallowedNumCores);
     SETVALUE(xt, Bool, isolateManager);
     SETVALUE(xt, Bool, statsReconfiguration);
+    SETVALUE(xt, Uint, nelderMeadRange);
     SETVALUE(xt, Bool, perPidLog);
     SETVALUE(xt, String, roiFile);
     SETVALUE(xt, ArrayEnums, loggersTypes);
@@ -887,6 +907,9 @@ void Parameters::loadXml(const string& paramFileName){
     SETVALUE(xt, String, leo.throughputData);
     SETVALUE(xt, String, leo.powerData);
     SETVALUE(xt, Uint, leo.numSamples);
+
+    SETVALUE(xt, ArrayUint, firstConfiguration.frequency);
+    SETVALUE(xt, ArrayUint, firstConfiguration.virtualCores);
 
     SETVALUE(xt, Bool, dataflow.orderedProcessing);
     SETVALUE(xt, Bool, dataflow.orderedOutput);

@@ -33,6 +33,7 @@
 #include "configuration.hpp"
 #include "knob.hpp"
 #include <mammut/mammut.hpp>
+#include <nornir/external/nelder-mead.h>
 
 #include <memory>
 
@@ -243,7 +244,7 @@ public:
 
     ~SelectorManualCli();
     KnobsValues getNextKnobsValues();
-    bool isMaxPerformanceConfiguration() const{return false;} // Never used by this selectors
+    bool isMaxPerformanceConfiguration() const{return false;} // Never used by this selector
 };
 
 /**
@@ -261,7 +262,7 @@ public:
 
     ~SelectorManualWeb();
     KnobsValues getNextKnobsValues();
-    bool isMaxPerformanceConfiguration() const{return false;} // Never used by this selectors
+    bool isMaxPerformanceConfiguration() const{return false;} // Never used by this selector
 };
 
 /**
@@ -610,6 +611,26 @@ public:
     ~SelectorLiMartinez();
 
     KnobsValues getNextKnobsValues();
+};
+
+class SelectorHMPNelderMead: public Selector{
+private:
+    neme::NelderMeadOptimizer _opt;
+    KnobsValues nmVectorToKv(neme::Vector v) const;
+    neme::Vector kvToNmVector(KnobsValues kv) const;
+    KnobsValues getFirstConfiguration() const;
+    double nmScore() const;
+    bool _firstGenerated;
+    KnobsValues _lastRelative;
+protected:
+    bool isMaxPerformanceConfiguration() const{return false;} // Never used by this selector
+public:
+  SelectorHMPNelderMead(const Parameters& p,
+                         const Configuration& configuration,
+                         const Smoother<MonitoredSample>* samples);
+  ~SelectorHMPNelderMead();
+
+  KnobsValues getNextKnobsValues();
 };
 
 }

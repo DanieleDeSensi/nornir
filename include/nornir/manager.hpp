@@ -54,18 +54,6 @@ class KnobVirtualCoresFarm;
 class Parameters;
 class ManagerMulti;
 
-
-// How to react to the calibration of other applications
-// in order to do not interfere too much with them.
-typedef enum{
-    // Do nothing
-    CALIBRATION_SHRINK_NONE = 0, //TODO: New managers arrived to the multimanager may not have space to calibrate.
-    // Move all the threads on the same core.
-    CALIBRATION_SHRINK_AGGREGATE,
-    // Move all the threads on the same core and pause the process.
-    CALIBRATION_SHRINK_PAUSE,
-}CalibrationShrink;
-
 /*!
  * \class Manager
  * \brief This class manages the adaptivity parallel applications.
@@ -151,6 +139,12 @@ protected:
 
     // Flag indicating if the execution must be simulated.
     bool _toSimulate;
+
+    // Flag indicating if the underlying hardware is an Heterogeneous Multiprocessor
+    bool _isHMP;
+
+    // Number of different HMP domains
+    uint _numHMP;
 
     // Samples to be used for simulation.
     std::list<MonitoredSample> _simulationSamples;
@@ -263,42 +257,6 @@ protected:
      * Creates the selector.
      */
     Selector* createSelector() const;
-private:
-    void inhibit();
-
-    void disinhibit();
-
-    void shrink(CalibrationShrink type);
-
-    void stretch(CalibrationShrink type);
-
-    virtual void shrinkPause() = 0;
-
-    virtual void stretchPause() = 0;
-
-    /**
-     * Updates the prediction models by letting them now
-     * that there is an interference caused by another application.
-     */
-    void updateModelsInterference();
-
-
-    /**
-     * Wait until the models have been updated and they are
-     * ready to be used.
-     */
-    void waitModelsInterferenceUpdate();
-
-    /**
-     * Returns the vector of physical cores used by the manager.
-     * If the manager is still calibrating, it waits until
-     * the manager finishes the calibration.
-     *
-     * @return The vector of physical cores used by the manager.
-     */
-    std::vector<mammut::topology::PhysicalCoreId> getUsedCores();
-
-    void allowCores(std::vector<mammut::topology::VirtualCoreId> ids);
 };
 
 /**
@@ -307,8 +265,6 @@ private:
 class ManagerInstrumented: public Manager{
 private:
     riff::Monitor _monitor;
-    void shrinkPause();
-    void stretchPause();
 public:
     /**
      * Creates an adaptivity manager for an instrumented application.
@@ -350,8 +306,6 @@ class ManagerBlackBox: public Manager{
 private:
     mammut::task::ProcessHandler* _process;
     double _startTime;
-    void shrinkPause();
-    void stretchPause();
 public:
     /**
      * Creates an adaptivity manager for an external NON-INSTRUMENTED
@@ -382,9 +336,6 @@ protected:
  * Dummy manager for testing purposes.
  **/
 class ManagerTest: public Manager{
-private:
-    void shrinkPause(){;}
-    void stretchPause(){;}
 public:
     explicit ManagerTest(Parameters nornirParameters, uint numthreads);
     ~ManagerTest(){;}
@@ -393,8 +344,6 @@ protected:
     MonitoredSample getSample(){return MonitoredSample();}
     ulong getExecutionTime(){return 0;}
 };
-
-
 
 }
 

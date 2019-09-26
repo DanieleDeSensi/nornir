@@ -40,7 +40,6 @@ namespace ff{
 	class ff_gatherer;
 }
 
-
 namespace nornir{
 
 class ManagerTest;
@@ -48,14 +47,14 @@ class ManagerTest;
 class Configuration: public mammut::utils::NonCopyable {
     friend class ManagerTest;
 protected:
-    Knob* _knobs[KNOB_NUM];
+    std::vector<std::array<Knob*, KNOB_NUM>> _knobs;
     Trigger* _triggers[TRIGGER_TYPE_NUM];
     uint _numServiceNodes;
+    uint _numHMPs;
 private:
     const Parameters& _p;
     bool _combinationsCreated;
     std::vector<KnobsValues> _combinations;
-    bool _knobsChangeNeeded;
     ReconfigurationStats _reconfigurationStats;
 
     void combinations(std::vector<std::vector<double> > array, size_t i,
@@ -71,9 +70,16 @@ private:
 
     void stopReconfigurationStatsTotal(ticks start);
 public:
-    explicit Configuration(const Parameters& p);
+    // If numCpus > 1, different knobs for each cpu (useful for HMP)
+    explicit Configuration(const Parameters& p, uint numHMPs);
 
     virtual ~Configuration() = 0;
+
+    /**
+     * @brief getNumCpus
+     * @return If the system is an HMP system, the number of CPUs, otherwise returns 1.
+     */
+    uint getNumHMP() const;
 
     /**
      * Returns true if the values of this configuration are equal to those
@@ -113,12 +119,16 @@ public:
      */
     void setFastReconfiguration();
 
+
+    Knob* getKnob(KnobType t) const;
+
     /**
      * Returns a specified knob.
+     * @param cpuId The cpuId.
      * @param t The type of the knob to return.
      * @return The specified knob.
      */
-    Knob* getKnob(KnobType t) const;
+    Knob* getKnob(uint cpuId, KnobType t) const;
 
     /**
      * Sets all the knobs to their maximum.
@@ -133,6 +143,14 @@ public:
     double getRealValue(KnobType t) const;
 
     /**
+     * Returns the real value of a specific knob.
+     * @param cpuId The cpuId.
+     * @param t The type of the knob.
+     * @return The real value of the specified knob.
+     */
+    double getRealValue(uint cpuId, KnobType t) const;
+
+    /**
      * Returns the real values for all the knobs.
      * @return The real values for all the knobs.
      */
@@ -142,7 +160,7 @@ public:
      * Sets values for the knobs (may be relative or real).
      * @param values The values of the knobs.
      */
-    void setValues(const KnobsValues& values);
+    virtual void setValues(const KnobsValues& values);
 
     /**
      * Triggers the triggers.
@@ -162,7 +180,7 @@ public:
 
 class ConfigurationExternal: public Configuration{
 public:
-    explicit ConfigurationExternal(const Parameters& p);
+    explicit ConfigurationExternal(const Parameters& p, uint numHMPs = 1);
 };
 
 class ConfigurationFarm: public Configuration{
@@ -173,7 +191,8 @@ public:
                       std::vector<AdaptiveNode*> workers,
                       AdaptiveNode* collector,
                       ff::ff_gatherer* gt,
-                      volatile bool* terminated);
+                      volatile bool* terminated,
+                      uint numHMPs = 1);
 };
 
 class ConfigurationPipe: public Configuration{
@@ -181,7 +200,8 @@ public:
     ConfigurationPipe(const Parameters& p,
                       Smoother<MonitoredSample> const* samples,
                       std::vector<KnobVirtualCoresFarm*> farms,
-                      std::vector<std::vector<double>> allowedValues);
+                      std::vector<std::vector<double>> allowedValues,
+                      uint numHMPs = 1);
 };
 
 }

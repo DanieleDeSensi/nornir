@@ -56,12 +56,14 @@ ExternalProject_Add(riff_repo
     UPDATE_COMMAND ""
 )
 
-# Build external libraries
-add_custom_target(
-    compile_ext
-    COMMAND make -C ${PROJECT_SOURCE_DIR}/src/external
-    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-)
+if(ENABLE_DATAFLOW)
+    # Build external libraries
+    add_custom_target(
+        compile_ext
+        COMMAND make -C ${PROJECT_SOURCE_DIR}/src/external
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    )
+endif(ENABLE_DATAFLOW)
 
 # Libraries
 add_library(nornir SHARED ${SOURCES})

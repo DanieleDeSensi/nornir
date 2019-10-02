@@ -1029,11 +1029,17 @@ SelectorLearner::SelectorLearner(const Parameters& p,
 	kv[KNOB_HYPERTHREADING] = 0.0;
 	additionalPoints.push_back(kv);
 
-	kv.reset();
-	kv[KNOB_VIRTUAL_CORES] = 100.0;
-	kv[KNOB_FREQUENCY] = 0.0;
-	kv[KNOB_HYPERTHREADING] = 100.0;
-	additionalPoints.push_back(kv);
+	KnobsValues kvreal(KNOB_VALUE_REAL);
+	kvreal[KNOB_VIRTUAL_CORES] = _configuration.getKnob(KNOB_VIRTUAL_CORES)->getAllowedValues().back();
+	kvreal[KNOB_FREQUENCY] = _configuration.getKnob(KNOB_FREQUENCY)->getAllowedValues().front();
+	kvreal[KNOB_HYPERTHREADING] = _configuration.getKnob(KNOB_HYPERTHREADING)->getAllowedValues().front();
+	additionalPoints.push_back(kvreal);
+
+	kvreal.reset();
+	kv[KNOB_VIRTUAL_CORES] = _configuration.getKnob(KNOB_VIRTUAL_CORES)->getAllowedValues().front();
+	kv[KNOB_FREQUENCY] = _configuration.getKnob(KNOB_FREQUENCY)->getAllowedValues().front();
+	kv[KNOB_HYPERTHREADING] = _configuration.getKnob(KNOB_HYPERTHREADING)->getAllowedValues().back();
+	additionalPoints.push_back(kvreal);
 
 	//I only need to explore on virtual cores, frequency and contexts
 	knobsFlags[KNOB_VIRTUAL_CORES] = true;

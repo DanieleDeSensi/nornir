@@ -565,8 +565,9 @@ private:
 	bool _preparationNeeded;
 	double _minFreq;
 	double _minFreqCoresExtime;
-	uint _cpus;
-	uint _phyCoresPerCpu;
+	uint _domains;
+	uint _phyCoresPerDomain;
+	uint _maxPhyCores;
 
 	double getSigma(double numCores, double freq) const;
 	double getKi(double numCores, double freq) const;

@@ -1172,8 +1172,10 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
 
 		//getting number of CPU and cores per CPU
 		mammut::topology::Topology* t = _p.mammut.getInstanceTopology();
-		_phyCoresPerCpu = t->getCpus().at(0)->getPhysicalCores().size();
-		_cpus = t->getCpus().size();
+		_domains = _p.mammut.getInstanceCpuFreq()->getDomains().size();
+    		uint virtCoresPerPhyCores = t->getPhysicalCore(0)->getVirtualCores().size();
+   		_phyCoresPerDomain = _p.mammut.getInstanceCpuFreq()->getDomains().at(0)->getVirtualCores().size() / virtCoresPerPhyCores;
+		_maxPhyCores = t->getPhysicalCores().size();
 	}
 
         //Add (or update existing) y to _ys and x to _xs
@@ -1228,11 +1230,17 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
 
 	void PredictorSMT::refine() {
 		double numContexts = _configuration.getKnob(KNOB_HYPERTHREADING)->getRealValue();
-		double numCores = (_configuration.getKnob(KNOB_VIRTUAL_CORES)->getRealValue()) / numContexts;
+		double numCores = _configuration.getKnob(KNOB_VIRTUAL_CORES)->getRealValue()/numContexts;
+
+		//Correcting the values of impossible configurations (empirically)
+		if (numCores > _maxPhyCores) numCores = _maxPhyCores;
+		else if (numCores < 1) {numCores *= numContexts; numContexts = numCores;}		
+		numCores = round(numCores);
 		double executionTime = 1.0 /(getMaximumThroughput());
 		double power = getCurrentPower();
 		double freq = 1.0;
-		double nActiveCpu = ceil(numCores / _phyCoresPerCpu);
+		double nActiveCpu = floor(numCores / _phyCoresPerDomain);
+		double nCoresInSpuriousCpu = ((uint) numCores) % _phyCoresPerDomain; 
 
 		if (_p.knobFrequencyEnabled) {
 			freq = _configuration.getKnob(KNOB_FREQUENCY)->getRealValue();
@@ -1265,12 +1273,13 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
 		}break;
 		case PREDICTION_POWER: {
 
-			double fullCPUvoltage = getVoltage(*static_cast<mammut::cpufreq::VoltageTable*>(_p.archData.voltageTable), _phyCoresPerCpu, freq);
+			double fullCPUvoltage = getVoltage(*static_cast<mammut::cpufreq::VoltageTable*>(_p.archData.voltageTable), _phyCoresPerDomain, freq);
+			double spuriousCPUVoltage = getVoltage(*static_cast<mammut::cpufreq::VoltageTable*>(_p.archData.voltageTable), nCoresInSpuriousCpu, freq);
 
 			vec x(4);
-			x(0) = (_cpus - nActiveCpu) * getVoltage(*static_cast<mammut::cpufreq::VoltageTable*>(_p.archData.voltageTable), 0, freq); //Static power of inutilized cpus
-			x(1) = nActiveCpu * fullCPUvoltage; //Static power of fully utilized cpus
-			x(2) = nActiveCpu * fullCPUvoltage * fullCPUvoltage* freq *_phyCoresPerCpu; //Dynamic power of fully utilized cpus
+			x(0) = (_domains - nActiveCpu) * getVoltage(*static_cast<mammut::cpufreq::VoltageTable*>(_p.archData.voltageTable), 0, freq); //Static power of inutilized domains
+			x(1) = nActiveCpu * fullCPUvoltage + spuriousCPUVoltage; //Static power of utilized domains
+			x(2) = nActiveCpu * fullCPUvoltage * fullCPUvoltage* freq *_phyCoresPerDomain + spuriousCPUVoltage * spuriousCPUVoltage * freq * nCoresInSpuriousCpu; //Dynamic power of utilized domains
 			x(3) = 1 - (1 / numContexts); //Hyper Threading power overhead
 
 			addObservation(_xs2, _ys2, x, power);
@@ -1285,7 +1294,7 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
 	}
 	bool PredictorSMT::readyForPredictions() {
 		
-		uint minPoints = 6;
+		uint minPoints = 4;
 		return _xs2.n_cols >= minPoints;
 
 	}
@@ -1299,7 +1308,7 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
 			case PREDICTION_THROUGHPUT: {
 
 				//Regression for USL/Freq only
-				_lr1 = new LinearRegression(_xs1, _ys1, 30.1, true);
+				_lr1 = new LinearRegression(_xs1, _ys1, true); 
 
 				mat usl_freq = _xs2.submat(0, 0, _xs2.n_rows - 2, _xs2.n_cols - 1);
 				mat ht = _xs2.submat(_xs2.n_rows - 1, 0, _xs2.n_rows - 1, _xs2.n_cols - 1);
@@ -1312,7 +1321,7 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
 				for (size_t i = 0; i < _xs2.n_cols; i++) extime_ht(i) = _ys2(i) / extime_noht(i);
 
 				//Regression for HT
-				_lr2 = new LinearRegression(ht, extime_ht, 0.04, true);
+				_lr2 = new LinearRegression(ht, extime_ht, true); 
 
 			}break;
 			case PREDICTION_POWER: {
@@ -1334,15 +1343,20 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
 		const KnobsValues realValues = _configuration.getRealValues(knobValues);
 
 		double numContexts = realValues[KNOB_HYPERTHREADING];
-		double numCores = (realValues[KNOB_VIRTUAL_CORES]) / numContexts;
+		double numCores = realValues[KNOB_VIRTUAL_CORES]/numContexts;
+
+		//Correcting the values of impossible configurations (empirically)
+		if (numCores > _maxPhyCores) numCores = _maxPhyCores;
+		else if (numCores < 1) {numCores *= numContexts; numContexts = numCores;}		
+		numCores = round(numCores);
+
 		double freq = 1;
-		double nActiveCpu = ceil(numCores / _phyCoresPerCpu);
-
-
 		if (_p.knobFrequencyEnabled) {
 			freq = realValues[KNOB_FREQUENCY];
 		}
 
+		double nActiveCpu = floor(numCores / _phyCoresPerDomain);
+		double nCoresInSpuriousCpu = ((uint) numCores) % _phyCoresPerDomain;
 		switch (_type) {
 		case PREDICTION_THROUGHPUT: {
 
@@ -1362,6 +1376,16 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
 			_lr2->Predict(ht, extime_ht);
 
 			extime_ht(0) *= extime_noht(0);
+			/*
+				cout << "[PredictorSMT] predict throughput for " << numCores << " " <<numContexts << " " << freq << " --> " << (1/extime_ht(0)) << endl;
+				cout << "===== PREDICTION FREQUENCY DEBUGGING =====" << endl;
+				cout << "usl_freq: " << usl_freq(0) << " " << usl_freq(1) << " " << usl_freq(2) << endl;
+				cout << "_lr1 Parameters: " << _lr1->Parameters()[0] << " " << _lr1->Parameters()[1] << " " << _lr1->Parameters()[2] << " " << _lr1->Parameters()[3] <<endl;
+				cout << "extime_noht: " << extime_noht(0) << endl;
+				cout << "ht: " <<ht(0) << endl;
+				cout << "_lr2 Parameters: " << _lr2->Parameters()[0] << " " << _lr2->Parameters()[1] << endl;
+				cout << "extime_ht: " << extime_ht(0) << endl;
+				cout << "===== DEBUGGING END =====" << endl;	*/
 
 			return (1/extime_ht(0));
 
@@ -1369,18 +1393,20 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
 		}break;
 		case PREDICTION_POWER: {
 
-			double fullCPUvoltage = getVoltage(*static_cast<mammut::cpufreq::VoltageTable*>(_p.archData.voltageTable), _phyCoresPerCpu, freq);
+			double fullCPUvoltage = getVoltage(*static_cast<mammut::cpufreq::VoltageTable*>(_p.archData.voltageTable), _phyCoresPerDomain, freq);
+			double spuriousCPUVoltage = getVoltage(*static_cast<mammut::cpufreq::VoltageTable*>(_p.archData.voltageTable), nCoresInSpuriousCpu, freq);
 
 			mat p_regr(4, 1);
-			p_regr(0, 0) = (_cpus - nActiveCpu) * getVoltage(*static_cast<mammut::cpufreq::VoltageTable*>(_p.archData.voltageTable), 0, freq);
-			p_regr(1, 0) = nActiveCpu * fullCPUvoltage;
-			p_regr(2, 0) = nActiveCpu * fullCPUvoltage * fullCPUvoltage* freq *_phyCoresPerCpu;
+			p_regr(0, 0) = (_domains - nActiveCpu) * getVoltage(*static_cast<mammut::cpufreq::VoltageTable*>(_p.archData.voltageTable), 0, freq);
+			p_regr(1, 0) = nActiveCpu * fullCPUvoltage + spuriousCPUVoltage;
+			p_regr(2, 0) = nActiveCpu * fullCPUvoltage * fullCPUvoltage* freq *_phyCoresPerDomain + spuriousCPUVoltage * spuriousCPUVoltage * freq * nCoresInSpuriousCpu;
 			p_regr(3, 0) = 1 - (1 / numContexts);
 
 			rowvec power_ht(1);
 
 			_lr2->Predict(p_regr, power_ht);
 
+			DEBUG("Predict power for " << numCores << " " <<numContexts << " " << freq << " --> " << power_ht(0));
 			return power_ht(0);
 
 		}break;
@@ -1392,19 +1418,19 @@ double PredictorFullSearch::predict(const KnobsValues& realValues){
 	}
 
 	void PredictorSMT::clear() {
-		if (_type == PREDICTION_THROUGHPUT) delete _lr1;
-		delete _lr2;
-
-		_xs1.reset();	_xs2.reset();
-		_ys1.reset();	_ys2.reset();
-
-		_xs2.set_size(4, 0);
-		_xs1.set_size(3, 0);
+		if (_xs1.n_cols > 0) 
+			{_xs1.reset(); _xs1.set_size(3, 0);}
+		if (_xs2.n_cols > 0) 
+			{_xs2.reset(); _xs2.set_size(4, 0);}
+		if (_ys1.size() > 0) 
+			{_ys1.reset();}	
+		if (_ys2.size() > 0) 
+			{_ys2.reset();}
 
 	}
 
 	PredictorSMT::~PredictorSMT() {
-		clear();
+		;
 	}
 #endif
 }

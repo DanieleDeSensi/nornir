@@ -27,78 +27,77 @@
 
 #include <nornir/trigger.hpp>
 
-namespace nornir{
+namespace nornir {
 
 TriggerQBlocking::TriggerQBlocking(TriggerConfQBlocking confQBlocking,
                                    double thresholdQBlocking,
                                    double thresholdQBlockingBelt,
-                                   Smoother<MonitoredSample> const* samples,
-                                   AdaptiveNode* emitter):
-        _confQBlocking(confQBlocking),
-        _thresholdQBlocking(thresholdQBlocking),
-        _thresholdQBlockingBelt(thresholdQBlockingBelt),
-        _samples(samples),
-        _emitter(emitter),
-        _blocking(false){
-    ;
+                                   Smoother<MonitoredSample> const *samples,
+                                   AdaptiveNode *emitter)
+    : _confQBlocking(confQBlocking), _thresholdQBlocking(thresholdQBlocking),
+      _thresholdQBlockingBelt(thresholdQBlockingBelt), _samples(samples),
+      _emitter(emitter), _blocking(false) {
+  ;
 }
 
-double TriggerQBlocking::getIdleTime() const{
-    MonitoredSample avg = _samples->average();
+double TriggerQBlocking::getIdleTime() const {
+  MonitoredSample avg = _samples->average();
 
-    /**
-     * Idle = (Interarrival - Latency)
-     *
-     * Latency = Utilization * Interarrival
-     * Interarrival = Latency/Utilization
-     * Idle = Latency/Utilization - Latency
-     **/
+  /**
+   * Idle = (Interarrival - Latency)
+   *
+   * Latency = Utilization * Interarrival
+   * Interarrival = Latency/Utilization
+   * Idle = Latency/Utilization - Latency
+   **/
 
-    // We need to convert to microsec since the threshold is specified in
-    // microsec.
-    double latencyMicroSec = avg.latency / 1000.0;
-    double utilisation = avg.loadPercentage / 100.0; // From [0, 100] to [0, 1]
-    if(!utilisation){utilisation = 1;} // Should never happen
-    return latencyMicroSec / utilisation - latencyMicroSec;
+  // We need to convert to microsec since the threshold is specified in
+  // microsec.
+  double latencyMicroSec = avg.latency / 1000.0;
+  double utilisation = avg.loadPercentage / 100.0; // From [0, 100] to [0, 1]
+  if (!utilisation) {
+    utilisation = 1;
+  } // Should never happen
+  return latencyMicroSec / utilisation - latencyMicroSec;
 }
 
-bool TriggerQBlocking::setBlocking(){
-    if(!_blocking){
-        _emitter->setQBlocking();
-        _blocking = true;
-        return true;
+bool TriggerQBlocking::setBlocking() {
+  if (!_blocking) {
+    _emitter->setQBlocking();
+    _blocking = true;
+    return true;
+  }
+  return false;
+}
+
+bool TriggerQBlocking::setNonBlocking() {
+  if (_blocking) {
+    _emitter->setQNonblocking();
+    _blocking = false;
+    return true;
+  }
+  return false;
+}
+
+bool TriggerQBlocking::trigger() {
+  switch (_confQBlocking) {
+  case TRIGGER_Q_BLOCKING_YES: {
+    return setBlocking();
+  } break;
+  case TRIGGER_Q_BLOCKING_NO: {
+    return setNonBlocking();
+  } break;
+  case TRIGGER_Q_BLOCKING_AUTO: {
+    double idleTime = getIdleTime();
+    if (idleTime >
+        _thresholdQBlocking + _thresholdQBlocking * _thresholdQBlockingBelt) {
+      return setBlocking();
+    } else if (idleTime < _thresholdQBlocking -
+                              _thresholdQBlocking * _thresholdQBlockingBelt) {
+      return setNonBlocking();
     }
-    return false;
+  } break;
+  }
+  return false;
 }
-
-bool TriggerQBlocking::setNonBlocking(){
-    if(_blocking){
-        _emitter->setQNonblocking();
-        _blocking = false;
-        return true;
-    }
-    return false;
-}
-
-bool TriggerQBlocking::trigger(){
-    switch(_confQBlocking){
-        case TRIGGER_Q_BLOCKING_YES:{
-            return setBlocking();
-        }break;
-        case TRIGGER_Q_BLOCKING_NO:{
-            return setNonBlocking();
-        }break;
-        case TRIGGER_Q_BLOCKING_AUTO:{
-            double idleTime = getIdleTime();
-            if(idleTime > _thresholdQBlocking +
-                          _thresholdQBlocking*_thresholdQBlockingBelt){
-                return setBlocking();
-            }else if(idleTime < _thresholdQBlocking -
-                                _thresholdQBlocking*_thresholdQBlockingBelt){
-                return setNonBlocking();
-            }
-        }break;
-    }
-    return false;
-}
-}
+} // namespace nornir

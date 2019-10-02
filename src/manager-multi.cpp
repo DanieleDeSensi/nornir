@@ -46,8 +46,14 @@ using namespace mammut::cpufreq;
 #undef DEBUGB
 
 #ifdef DEBUG_MANAGER_MULTI
-#define DEBUG(x) do { cerr << "[ManagerMulti] " << x << endl; } while (0)
-#define DEBUGB(x) do {x;} while(0)
+#define DEBUG(x)                                                               \
+  do {                                                                         \
+    cerr << "[ManagerMulti] " << x << endl;                                    \
+  } while (0)
+#define DEBUGB(x)                                                              \
+  do {                                                                         \
+    x;                                                                         \
+  } while (0)
 #else
 #define DEBUG(x)
 #define DEBUGB(x)

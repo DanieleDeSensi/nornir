@@ -25,42 +25,43 @@
  * =========================================================================
  */
 
-#include <nornir/utils.hpp>
 #include <mammut/utils.hpp>
+#include <nornir/utils.hpp>
 
-namespace nornir{
-std::vector<std::string> getXdgConfigDirs(){
-    char* confHome_c = getenv("XDG_CONFIG_DIRS");
-    std::vector<std::string> confHomes;
-    if(!confHome_c || strcmp(confHome_c, "") == 0){
-        confHomes.push_back(std::string(XDG_CONFIG_DIR_FALLBACK));
-    }else{
-        confHomes = mammut::utils::split(std::string(confHome_c), ':');
-    }
-    for(std::string& s : confHomes){
-        s += "/nornir/";
-    }
-    return confHomes;
+namespace nornir {
+std::vector<std::string> getXdgConfigDirs() {
+  char *confHome_c = getenv("XDG_CONFIG_DIRS");
+  std::vector<std::string> confHomes;
+  if (!confHome_c || strcmp(confHome_c, "") == 0) {
+    confHomes.push_back(std::string(XDG_CONFIG_DIR_FALLBACK));
+  } else {
+    confHomes = mammut::utils::split(std::string(confHome_c), ':');
+  }
+  for (std::string &s : confHomes) {
+    s += "/nornir/";
+  }
+  return confHomes;
 }
 
-std::string getRuntimeDir(bool userSpecific){
-    char* runtimeDir_c = getenv("XDG_RUNTIME_DIR");
-    if(!runtimeDir_c || strcmp(runtimeDir_c, "") == 0 || !userSpecific){
-        runtimeDir_c = (char*) "/tmp/";
-    }
-    std::string runtimeDir = std::string(runtimeDir_c) + std::string("/nornir/");
+std::string getRuntimeDir(bool userSpecific) {
+  char *runtimeDir_c = getenv("XDG_RUNTIME_DIR");
+  if (!runtimeDir_c || strcmp(runtimeDir_c, "") == 0 || !userSpecific) {
+    runtimeDir_c = (char *) "/tmp/";
+  }
+  std::string runtimeDir = std::string(runtimeDir_c) + std::string("/nornir/");
 
-    // Create dir if it does not exist
-    if(!mammut::utils::existsDirectory(runtimeDir)){
-        if(system((std::string("mkdir -p ") + runtimeDir).c_str())){
-            throw std::runtime_error("Impossible to create nornir runtime dir.");
-        }
-        if(!userSpecific){
-            if(system((std::string("chmod ugo+rwx ") + runtimeDir).c_str())){
-                throw std::runtime_error("Impossible to set permissions on nornir runtime dir.");
-            }
-        }
+  // Create dir if it does not exist
+  if (!mammut::utils::existsDirectory(runtimeDir)) {
+    if (system((std::string("mkdir -p ") + runtimeDir).c_str())) {
+      throw std::runtime_error("Impossible to create nornir runtime dir.");
     }
-    return runtimeDir;
+    if (!userSpecific) {
+      if (system((std::string("chmod ugo+rwx ") + runtimeDir).c_str())) {
+        throw std::runtime_error(
+            "Impossible to set permissions on nornir runtime dir.");
+      }
+    }
+  }
+  return runtimeDir;
 }
-}
+} // namespace nornir

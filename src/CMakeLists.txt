@@ -43,10 +43,16 @@ else()
     list(REMOVE_ITEM SOURCES "${PROJECT_SOURCE_DIR}/src/ompt.cpp")
 endif(ENABLE_OMP)
 
+if(ENABLE_BLACKBOX)
+    set(MAMMUT_PAPI "ON")
+else()
+    set(MAMMUT_PAPI "OFF")
+endif(ENABLE_BLACKBOX)
+
 ExternalProject_Add(mammut_repo
     GIT_REPOSITORY https://github.com/danieledesensi/mammut
     GIT_TAG 6f5898c
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DENABLE_PAPI=${MAMMUT_PAPI}
     UPDATE_COMMAND ""
 )
 
@@ -62,6 +68,12 @@ if(ENABLE_DATAFLOW)
     add_custom_target(
         compile_ext
         COMMAND make -C ${PROJECT_SOURCE_DIR}/src/external
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    )
+else()
+    add_custom_target(
+        compile_ext
+        COMMAND echo
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     )
 endif(ENABLE_DATAFLOW)
@@ -146,10 +158,7 @@ install(DIRECTORY ${EXTERNAL_INSTALL_LOCATION}/lib DESTINATION .)
 install(DIRECTORY ${EXTERNAL_INSTALL_LOCATION}/include DESTINATION .)
 
 if(ENABLE_OMP)
-    if(EXISTS ${EXTERNAL_INSTALL_LOCATION_OMP}/lib/libomp.so)
-        file(RENAME ${EXTERNAL_INSTALL_LOCATION_OMP}/lib/libomp.so ${EXTERNAL_INSTALL_LOCATION_OMP}/lib/libomp_nornir.so)
-    endif()
-    install(FILES ${EXTERNAL_INSTALL_LOCATION_OMP}/lib/libomp_nornir.so DESTINATION lib)
+    install(FILES ${EXTERNAL_INSTALL_LOCATION_OMP}/lib/libomp.so DESTINATION lib RENAME libomp_nornir.so)
 endif(ENABLE_OMP)
 
 

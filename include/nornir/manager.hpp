@@ -105,6 +105,9 @@ protected:
     // The cpufreq module.
     mammut::cpufreq::CpuFreq* _cpufreq;
 
+    // The energy module.
+    mammut::energy::Energy* _energy;
+
     // Monitored samples;
     Smoother<MonitoredSample>* _samples;
 
@@ -155,6 +158,7 @@ protected:
 
     mammut::topology::RollbackPoint _topologyRollbackPoint;
     mammut::cpufreq::RollbackPoint _cpufreqRollbackPoint;
+    mammut::energy::RollbackPoint _energyRollbackPoint;
 
     /**
      * Wait for the application to start and

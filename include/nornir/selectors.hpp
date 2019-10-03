@@ -278,7 +278,7 @@ public:
 
     ~SelectorFixed();
 
-    KnobsValues getNextKnobsValues();
+    virtual KnobsValues getNextKnobsValues();
 };
 
 class ManagerMulti;
@@ -631,6 +631,19 @@ public:
   ~SelectorHMPNelderMead();
 
   KnobsValues getNextKnobsValues();
+};
+
+class SelectorRapl: public SelectorFixed{
+private:
+    mammut::energy::PowerCapper* _pc;
+protected:
+    bool isMaxPerformanceConfiguration() const{return false;} // Never used by this selector
+public:
+    SelectorRapl(const Parameters& p,
+                  const Configuration& configuration,
+                  const Smoother<MonitoredSample>* samples);
+
+    ~SelectorRapl();
 };
 
 }

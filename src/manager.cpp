@@ -121,13 +121,11 @@ Manager::Manager(Parameters nornirParameters)
 
   _topology = _p.mammut.getInstanceTopology();
   _cpufreq = _p.mammut.getInstanceCpuFreq();
+  _energy = _p.mammut.getInstanceEnergy();
   if (!_toSimulate) {
     // We cannot create energy and task modules
     // since they are not simulated by mammut
-    _counter = _p.mammut.getInstanceEnergy()->getCounter(COUNTER_CPUS);
-    if (!_counter) {
-      _counter = _p.mammut.getInstanceEnergy()->getCounter(COUNTER_PLUG);
-    }
+    _counter = _energy->getCounter(_p.powerDomain);
     _task = _p.mammut.getInstanceTask();
   }
   DEBUG("Mammut handlers created.");
@@ -136,6 +134,7 @@ Manager::Manager(Parameters nornirParameters)
   if (_p.knobFrequencyEnabled) {
     _cpufreqRollbackPoint = _cpufreq->getRollbackPoint();
   }
+  _energyRollbackPoint = _energy->getRollbackPoint();
 
   mammut::cpufreq::Frequency lastFreq = 0;
   _numHMP = 1;
@@ -160,6 +159,7 @@ Manager::~Manager() {
     _cpufreq->reinsertTurboFrequencies(); // Otherwise rollback will not work
     _cpufreq->rollback(_cpufreqRollbackPoint);
   }
+  _energy->rollback(_energyRollbackPoint);
 }
 
 void Manager::run() {
@@ -374,6 +374,9 @@ Selector *Manager::createSelector() const {
     case STRATEGY_SELECTION_FULLSEARCH: {
       return new SelectorFullSearch(_p, *_configuration, _samples);
     } break;
+    case STRATEGY_SELECTION_RAPL: {
+      return new SelectorRapl(_p, *_configuration, _samples);
+    } break;
     default: {
       throw std::runtime_error("Selector not yet implemented.");
     } break;
@@ -473,7 +476,8 @@ void Manager::decideAndAct(bool force) {
   }
 
   KnobsValues kv;
-  if (!_configuration->knobsChangeNeeded()) {
+  if (!_configuration->knobsChangeNeeded() &&
+      _p.strategySelection != STRATEGY_SELECTION_RAPL) { // RAPL does not use any knob
     kv = _configuration->getRealValues();
   } else {
     if (_totalTasks) {

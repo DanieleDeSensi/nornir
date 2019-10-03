@@ -166,6 +166,9 @@ typedef enum{
     // Nelder-Mead algorithm starting from a predicted optimal (for HMP systems).
     STRATEGY_SELECTION_HMP_NELDERMEAD,
 
+    // Uses RAPL power capper to set power consumption requirements.
+    STRATEGY_SELECTION_RAPL,
+
     STRATEGY_SELECTION_NUM // <- Must always be the last.
 }StrategySelection;
 
@@ -958,6 +961,9 @@ public:
 
     // 'Range' of the starting Nelder-Mead simplex [default = 2].
     uint nelderMeadRange;
+
+    // Power domain [default = CPUS]
+    mammut::energy::CounterType powerDomain;
 
     // Parameters for dataflow applications.
     DataflowParameters dataflow;

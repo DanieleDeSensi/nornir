@@ -268,6 +268,7 @@ void Parameters::setDefault() {
   isolateManager = false;
   statsReconfiguration = false;
   nelderMeadRange = 2;
+  powerDomain = mammut::energy::COUNTER_CPUS;
   perPidLog = false;
   roiFile = "";
 
@@ -523,6 +524,10 @@ ParametersValidation Parameters::validateRequirements() {
       return VALIDATION_WRONG_REQUIREMENT;
     }
   }
+  if(strategySelection == STRATEGY_SELECTION_RAPL &&
+     !isPrimaryRequirement(requirements.powerConsumption)) {
+    return VALIDATION_WRONG_REQUIREMENT;
+  }
   // Energy is for the moment supported only by ANALYTICAL_FULL
   if (requirements.energy != NORNIR_REQUIREMENT_UNDEF &&
       strategySelection != STRATEGY_SELECTION_ANALYTICAL_FULL &&
@@ -563,6 +568,8 @@ ParametersValidation Parameters::validateRequirements() {
 
   return VALIDATION_OK;
 }
+
+// clang-format off
 ParametersValidation Parameters::validateSelector() {
   bool knobsSupportSelector[STRATEGY_SELECTION_NUM][KNOB_NUM];
   if (strategySelection == STRATEGY_SELECTION_NUM) {
@@ -652,6 +659,13 @@ ParametersValidation Parameters::validateSelector() {
       false;
   knobsSupportSelector[STRATEGY_SELECTION_HMP_NELDERMEAD][KNOB_CLKMOD] = false;
 
+  // RAPL
+  knobsSupportSelector[STRATEGY_SELECTION_RAPL][KNOB_VIRTUAL_CORES] = false;
+  knobsSupportSelector[STRATEGY_SELECTION_RAPL][KNOB_FREQUENCY] = false;
+  knobsSupportSelector[STRATEGY_SELECTION_RAPL][KNOB_MAPPING] = false;
+  knobsSupportSelector[STRATEGY_SELECTION_RAPL][KNOB_HYPERTHREADING] = false;
+  knobsSupportSelector[STRATEGY_SELECTION_RAPL][KNOB_CLKMOD] = false;
+
   if (strategySelection == STRATEGY_SELECTION_HMP_NELDERMEAD &&
       (firstConfiguration.virtualCores.empty() ||
        firstConfiguration.frequency.empty())) {
@@ -685,85 +699,56 @@ ParametersValidation Parameters::validateSelector() {
     /*          Performance models.           */
     /******************************************/
     // AMDAHL
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL]
-                           [KNOB_VIRTUAL_CORES] = true;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL]
-                           [KNOB_FREQUENCY] = true;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL]
-                           [KNOB_MAPPING] = true;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL]
-                           [KNOB_HYPERTHREADING] = false;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL]
-                           [KNOB_CLKMOD] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL][KNOB_VIRTUAL_CORES] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL][KNOB_FREQUENCY] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL][KNOB_MAPPING] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL][KNOB_HYPERTHREADING] = false;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL][KNOB_CLKMOD] = true;
     // LEO
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO]
-                           [KNOB_VIRTUAL_CORES] = true;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO]
-                           [KNOB_FREQUENCY] = true;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_MAPPING] =
-        false;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO]
-                           [KNOB_HYPERTHREADING] = false;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_CLKMOD] =
-        false;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_VIRTUAL_CORES] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_FREQUENCY] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_MAPPING] = false;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_HYPERTHREADING] = false;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_CLKMOD] = false;
     // USL
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL]
-                           [KNOB_VIRTUAL_CORES] = true;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL]
-                           [KNOB_FREQUENCY] = true;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_MAPPING] =
-        true;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL]
-                           [KNOB_HYPERTHREADING] = false;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_CLKMOD] =
-        true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_VIRTUAL_CORES] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_FREQUENCY] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_MAPPING] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_HYPERTHREADING] = false;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_CLKMOD] = true;
     // USLP
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP]
-                           [KNOB_VIRTUAL_CORES] = true;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP]
-                           [KNOB_FREQUENCY] = true;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP]
-                           [KNOB_MAPPING] = true;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP]
-                           [KNOB_HYPERTHREADING] = false;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP][KNOB_CLKMOD] =
-        true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP][KNOB_VIRTUAL_CORES] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP][KNOB_FREQUENCY] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP][KNOB_MAPPING] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP][KNOB_HYPERTHREADING] = false;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP][KNOB_CLKMOD] = true;
     // SMT
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT]
-                           [KNOB_VIRTUAL_CORES] = true;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT]
-                           [KNOB_FREQUENCY] = true;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_MAPPING] =
-        false;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT]
-                           [KNOB_HYPERTHREADING] = true;
-    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_CLKMOD] =
-        false;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_VIRTUAL_CORES] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_FREQUENCY] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_MAPPING] = false;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_HYPERTHREADING] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_CLKMOD] = false;
 
     /******************************************/
     /*              Power models.             */
     /******************************************/
     // LINEAR
-    knobsSupportPower[STRATEGY_PREDICTION_POWER_LINEAR][KNOB_VIRTUAL_CORES] =
-        true;
+    knobsSupportPower[STRATEGY_PREDICTION_POWER_LINEAR][KNOB_VIRTUAL_CORES] = true;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_LINEAR][KNOB_FREQUENCY] = true;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_LINEAR][KNOB_MAPPING] = true;
-    knobsSupportPower[STRATEGY_PREDICTION_POWER_LINEAR][KNOB_HYPERTHREADING] =
-        false;
+    knobsSupportPower[STRATEGY_PREDICTION_POWER_LINEAR][KNOB_HYPERTHREADING] = false;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_LINEAR][KNOB_CLKMOD] = true;
     // LEO
     knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_VIRTUAL_CORES] = true;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_FREQUENCY] = true;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_MAPPING] = false;
-    knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_HYPERTHREADING] =
-        false;
+    knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_HYPERTHREADING] = false;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_CLKMOD] = false;
     // SMT
     knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_VIRTUAL_CORES] = true;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_FREQUENCY] = true;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_MAPPING] = false;
-    knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_HYPERTHREADING] =
-        true;
+    knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_HYPERTHREADING] = true;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_CLKMOD] = false;
 
     // Check if the knob enabled can be managed by the predictors specified.
@@ -788,8 +773,7 @@ ParametersValidation Parameters::validateSelector() {
     // TODO: This is because the additional exploration points at the moment
     // can only be added to the low discrepancy generators.
     if ((strategyPredictionPerformance == STRATEGY_PREDICTION_PERFORMANCE_USL ||
-         strategyPredictionPerformance ==
-             STRATEGY_PREDICTION_PERFORMANCE_USLP ||
+         strategyPredictionPerformance == STRATEGY_PREDICTION_PERFORMANCE_USLP ||
          strategyPredictionPerformance == STRATEGY_PREDICTION_PERFORMANCE_SMT ||
          strategyPredictionPower == STRATEGY_PREDICTION_POWER_SMT) &&
         (strategyExploration != STRATEGY_EXPLORATION_HALTON &&
@@ -803,54 +787,96 @@ ParametersValidation Parameters::validateSelector() {
   return VALIDATION_OK;
 }
 
-template <> char const *enumStrings<LoggerType>::data[] = {"FILE", "GRAPHITE"};
-
-template <>
-char const *enumStrings<TriggerConfQBlocking>::data[] = {"NO", "YES", "AUTO"};
-
-template <>
-char const *enumStrings<StrategyUnusedVirtualCores>::data[] = {
-    "AUTO", "SAME", "NONE", "LOWEST_FREQUENCY", "OFF"};
-
-template <>
-char const *enumStrings<StrategySelection>::data[] = {
-    "MANUAL_CLI", "MANUAL_WEB", "LEARNING", "ANALYTICAL",     "ANALYTICAL_FULL",
-    "FULLSEARCH", "LIMARTINEZ", "LEO",      "HMP_NELDERMEAD",
-    "NUM" // <- Must always be the last
+template <> char const *enumStrings<LoggerType>::data[] = {
+  "FILE",
+  "GRAPHITE"
 };
 
-template <>
-char const *enumStrings<StrategyPredictionPerformance>::data[] = {
-    "AMDAHL", "USL", "USLP", "LEO", "SMT",
-    "NUM" // <- Must always be the last
+template <> char const *enumStrings<TriggerConfQBlocking>::data[] = {
+  "NO",
+  "YES",
+  "AUTO"
 };
 
-template <>
-char const *enumStrings<StrategyPredictionPower>::data[] = {
-    "LINEAR", "LEO", "SMT",
-    "NUM" // <- Must always be the last
+template <> char const *enumStrings<StrategyUnusedVirtualCores>::data[] = {
+  "AUTO",
+  "SAME",
+  "NONE",
+  "LOWEST_FREQUENCY",
+  "OFF"
 };
 
-template <>
-char const *enumStrings<StrategyExploration>::data[] = {
-    "RANDOM", "NIEDERREITER", "SOBOL", "HALTON", "HALTON_REVERSE"};
+template <> char const *enumStrings<StrategySelection>::data[] = {
+  "MANUAL_CLI",
+  "MANUAL_WEB",
+  "LEARNING",
+  "ANALYTICAL",
+  "ANALYTICAL_FULL",
+  "FULLSEARCH",
+  "LIMARTINEZ",
+  "LEO",
+  "HMP_NELDERMEAD",
+  "RAPL",
+  "NUM" // <- Must always be the last
+};
 
-template <>
-char const *enumStrings<StrategySmoothing>::data[] = {"MOVING_AVERAGE",
-                                                      "EXPONENTIAL"};
+template <> char const *enumStrings<StrategyPredictionPerformance>::data[] = {
+  "AMDAHL",
+  "USL",
+  "USLP",
+  "LEO",
+  "SMT",
+  "NUM" // <- Must always be the last
+};
 
-template <>
-char const *enumStrings<StrategySmoothingFactor>::data[] = {"CONST", "DYNAMIC"};
+template <> char const *enumStrings<StrategyPredictionPower>::data[] = {
+  "LINEAR",
+  "LEO",
+  "SMT",
+  "NUM" // <- Must always be the last
+};
 
-template <>
-char const *enumStrings<StrategyPolling>::data[] = {
-    "SPINNING", "PAUSE", "SLEEP_SMALL", "SLEEP_LATENCY"};
+template <> char const *enumStrings<StrategyExploration>::data[] = {
+  "RANDOM",
+  "NIEDERREITER",
+  "SOBOL",
+  "HALTON",
+  "HALTON_REVERSE"
+};
 
-template <>
-char const *enumStrings<StrategyPersistence>::data[] = {"SAMPLES", "VARIATION"};
+template <> char const *enumStrings<StrategySmoothing>::data[] = {
+  "MOVING_AVERAGE",
+  "EXPONENTIAL"
+};
 
-template <>
-char const *enumStrings<StrategyPhaseDetection>::data[] = {"NONE", "TRIVIAL"};
+template <> char const *enumStrings<StrategySmoothingFactor>::data[] = {
+  "CONST",
+  "DYNAMIC"
+};
+
+template <> char const *enumStrings<StrategyPolling>::data[] = {
+  "SPINNING",
+  "PAUSE",
+  "SLEEP_SMALL",
+  "SLEEP_LATENCY"
+};
+
+template <> char const *enumStrings<StrategyPersistence>::data[] = {
+  "SAMPLES",
+  "VARIATION"
+};
+
+template <> char const *enumStrings<StrategyPhaseDetection>::data[] = {
+  "NONE",
+  "TRIVIAL"
+};
+
+template <> char const *enumStrings<mammut::energy::CounterType>::data[] = {
+  "CPUS",
+  "MEMORY",
+  "PLUG"
+};
+// clang-format on
 
 void Parameters::loadXml(const string &paramFileName) {
   XmlTree xt(paramFileName, "nornirParameters");
@@ -911,6 +937,7 @@ void Parameters::loadXml(const string &paramFileName) {
   SETVALUE(xt, ArrayUint, disallowedNumCores);
   SETVALUE(xt, Bool, isolateManager);
   SETVALUE(xt, Bool, statsReconfiguration);
+  SETVALUE(xt, Enum, powerDomain);
   SETVALUE(xt, Uint, nelderMeadRange);
   SETVALUE(xt, Bool, perPidLog);
   SETVALUE(xt, String, roiFile);

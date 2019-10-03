@@ -45,7 +45,7 @@ endif(ENABLE_OMP)
 
 ExternalProject_Add(mammut_repo
     GIT_REPOSITORY https://github.com/danieledesensi/mammut
-    GIT_TAG 1663c09
+    GIT_TAG 6f5898c
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     UPDATE_COMMAND ""
 )

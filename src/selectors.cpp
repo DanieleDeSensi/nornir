@@ -1733,4 +1733,19 @@ KnobsValues SelectorHMPNelderMead::getNextKnobsValues() {
   }
 }
 
+SelectorRapl::SelectorRapl(const Parameters& p,
+                           const Configuration& configuration,
+                           const Smoother<MonitoredSample>* samples):
+  SelectorFixed(p, configuration, samples),
+  _pc(_p.mammut.getInstanceEnergy()->getPowerCapper(_p.powerDomain)){
+  PowerCap cap;
+  cap.value = _p.requirements.powerConsumption;
+  cap.window = 1;
+  _pc->set(cap);
+}
+
+SelectorRapl::~SelectorRapl(){
+  ;
+}
+
 } // namespace nornir

@@ -19,6 +19,7 @@ option (ENABLE_GSL "Enables Selectors using gsl" ON)
 option (ENABLE_ARMADILLO "Enables Selectors using armadillo" ON)
 option (ENABLE_DATAFLOW "Enables Dataflow interface compilation" ON)
 option (ENABLE_BLACKBOX "Enables blackbox manager (requires PAPI)" OFF)
+option (ENABLE_RAPLCAP "Enables RAPL power capper" ON)
 
 include(CheckCXXCompilerFlag)
 check_cxx_compiler_flag(-faligned-new AW)

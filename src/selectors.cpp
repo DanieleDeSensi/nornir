@@ -70,7 +70,7 @@ Selector::Selector(const Parameters &p, const Configuration &configuration,
       _numCalibrationPoints(0), _forced(false), _forcedReturned(false),
       _calibrationCoordination(false), _calibrationAllowed(false),
       _totalTasks(0), _remainingTasks(p.requirements.expectedTasksNumber) {
-  _joulesCounter = _localMammut.getInstanceEnergy()->getCounter();
+  //_joulesCounter = _localMammut.getInstanceEnergy()->getCounter();
   _numPhyCores = _p.mammut.getInstanceTopology()->getPhysicalCores().size();
   // TODO Fare meglio con mammut
   // TODO Assicurarsi che il numero totale di configurazioni possibili sia
@@ -183,9 +183,14 @@ void Selector::startCalibration() {
     _numCalibrationPoints = 0;
     _calibrationStartMs = getMillisecondsTime();
     _calibrationStartTasks = _totalTasks;
+    // Removed because there are issues with XU3 (we cannot have multiple concurrent energy counters)
+    // We should either remove the joules calibration stats or fix it (e.g. by storing the joules every
+    // time that getNextKnobsValues is called).
+    /*
     if (_joulesCounter) {
       _joulesCounter->reset();
     }
+    */
   }
 }
 
@@ -198,9 +203,14 @@ void Selector::stopCalibration() {
     cs.duration = (getMillisecondsTime() - _calibrationStartMs);
     _totalCalibrationTime += cs.duration;
     cs.numTasks = _totalTasks - _calibrationStartTasks;
+    // Removed because there are issues with XU3 (we cannot have multiple concurrent energy counters)
+    // We should either remove the joules calibration stats or fix it (e.g. by storing the joules every
+    // time that getNextKnobsValues is called).
+    /*
     if (_joulesCounter) {
       cs.joules = _joulesCounter->getJoules();
     }
+    */
     _calibrationStats.push_back(cs);
     _numCalibrationPoints = 0;
   }

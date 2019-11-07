@@ -45,7 +45,7 @@ private:
     uint _calibrationStartMs;
     uint64_t _calibrationStartTasks;
     mammut::Mammut _localMammut;
-    mammut::energy::Counter* _joulesCounter;
+    //mammut::energy::Counter* _joulesCounter;
     double _totalCalibrationTime;
     bool _calibrating;
     bool _ignoreViolations;

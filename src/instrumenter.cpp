@@ -179,6 +179,13 @@ nornir_instrumenter_create_with_threads(const char *parametersFile,
       new nornir::Instrumenter(parametersFile, numThreads));
 }
 
+NornirInstrumenter *
+nornir_instrumenter_create_with_server(const char *parametersFile,
+                                        size_t numThreads) {
+  return reinterpret_cast<NornirInstrumenter *>(
+      new nornir::Instrumenter(parametersFile, numThreads, NULL, true));
+}
+
 void nornir_instrumenter_destroy(NornirInstrumenter *instrumenter) {
   delete reinterpret_cast<nornir::Instrumenter *>(instrumenter);
 }

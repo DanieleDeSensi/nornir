@@ -39,6 +39,8 @@ NornirInstrumenter* nornir_instrumenter_create(const char* parametersFile);
 
 NornirInstrumenter* nornir_instrumenter_create_with_threads(const char* parametersFile, size_t numThreads);
 
+NornirInstrumenter* nornir_instrumenter_create_with_server(const char* parametersFile, size_t numThreads);
+
 void nornir_instrumenter_destroy(NornirInstrumenter* instrumenter);
 
 void nornir_instrumenter_begin(NornirInstrumenter* instrumenter);

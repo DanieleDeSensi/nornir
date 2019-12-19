@@ -37,7 +37,7 @@
 
 #undef DEBUG
 #undef DEBUGB
-
+//#define DEBUG_PREDICTORS
 #ifdef DEBUG_PREDICTORS
 #define DEBUG(x)                                                               \
   do {                                                                         \
@@ -1225,6 +1225,8 @@ PredictorSMT::PredictorSMT(PredictorType type, const Parameters &p,
                            .size() /
                        virtCoresPerPhyCores;
   _maxPhyCores = t->getPhysicalCores().size();
+  _lr1 = NULL;
+  _lr2 = NULL;
 }
 
 // Add (or update existing) y to _ys and x to _xs
@@ -1253,18 +1255,19 @@ void PredictorSMT::addObservation(mat &_xs, rowvec &_ys, const vec &x,
 }
 
 double PredictorSMT::getSigma(double numCores, double freq) const {
-  return ((numCores - 1) * _minFreqCoresExtime * _minFreq / (numCores * freq));
+  return (((numCores - 1) * _minFreqCoresExtime * _minFreq) / (numCores * freq)); // B
 }
 
 double PredictorSMT::getKi(double numCores, double freq) const {
-  return ((numCores - 1) * _minFreqCoresExtime * _minFreq / (freq));
+  return (((numCores - 1) * _minFreqCoresExtime * _minFreq) / (freq)); // C
 }
 
 double PredictorSMT::getGamma(double numCores, double freq) const {
-  return (_minFreqCoresExtime * _minFreq / (numCores * freq));
+  return ((_minFreqCoresExtime * _minFreq) / (numCores * freq)); // A
 }
 
 double PredictorSMT::getHT(double numContexts) const {
+  //return 1 - (1 / numContexts);
   return (1 / numContexts) - 1;
 }
 
@@ -1274,14 +1277,6 @@ void PredictorSMT::refine() {
   double numCores =
       _configuration.getKnob(KNOB_VIRTUAL_CORES)->getRealValue() / numContexts;
 
-  // Correcting the values of impossible configurations (empirically)
-  if (numCores > _maxPhyCores)
-    numCores = _maxPhyCores;
-  else if (numCores < 1) {
-    numCores *= numContexts;
-    numContexts = numCores;
-  }
-  numCores = round(numCores);
   double executionTime = 1.0 / (getMaximumThroughput());
   double power = getCurrentPower();
   double freq = 1.0;
@@ -1360,7 +1355,10 @@ void PredictorSMT::prepareForPredictions() {
     case PREDICTION_THROUGHPUT: {
 
       // Regression for USL/Freq only
-      _lr1 = new LinearRegression(_xs1, _ys1, true);
+      if(_lr1){
+	delete _lr1;
+      }
+      _lr1 = new LinearRegression(_xs1, _ys1);
 
       mat usl_freq = _xs2.submat(0, 0, _xs2.n_rows - 2, _xs2.n_cols - 1);
       mat ht =
@@ -1375,12 +1373,17 @@ void PredictorSMT::prepareForPredictions() {
         extime_ht(i) = _ys2(i) / extime_noht(i);
 
       // Regression for HT
-      _lr2 = new LinearRegression(ht, extime_ht, true);
+      if(_lr2){
+	delete _lr2;
+      }
+      _lr2 = new LinearRegression(ht, extime_ht);
 
     } break;
     case PREDICTION_POWER: {
-
-      _lr2 = new LinearRegression(_xs2, _ys2, 0, true);
+      if(_lr2){
+	delete _lr2;
+      }
+      _lr2 = new LinearRegression(_xs2, _ys2);
 
     } break;
     default: { throw std::runtime_error("Unknown predictor type."); }
@@ -1395,16 +1398,6 @@ double PredictorSMT::predict(const KnobsValues &knobValues) {
 
   double numContexts = realValues[KNOB_HYPERTHREADING];
   double numCores = realValues[KNOB_VIRTUAL_CORES] / numContexts;
-
-  // Correcting the values of impossible configurations (empirically)
-  if (numCores > _maxPhyCores)
-    numCores = _maxPhyCores;
-  else if (numCores < 1) {
-    numCores *= numContexts;
-    numContexts = numCores;
-  }
-  numCores = round(numCores);
-
   double freq = 1;
   if (_p.knobFrequencyEnabled) {
     freq = realValues[KNOB_FREQUENCY];
@@ -1431,19 +1424,17 @@ double PredictorSMT::predict(const KnobsValues &knobValues) {
     _lr2->Predict(ht, extime_ht);
 
     extime_ht(0) *= extime_noht(0);
-    /*
-            cout << "[PredictorSMT] predict throughput for " << numCores << " "
-       <<numContexts << " " << freq << " --> " << (1/extime_ht(0)) << endl; cout
-       << "===== PREDICTION FREQUENCY DEBUGGING =====" << endl; cout <<
-       "usl_freq: " << usl_freq(0) << " " << usl_freq(1) << " " << usl_freq(2)
-       << endl; cout << "_lr1 Parameters: " << _lr1->Parameters()[0] << " " <<
-       _lr1->Parameters()[1] << " " << _lr1->Parameters()[2] << " " <<
-       _lr1->Parameters()[3] <<endl; cout << "extime_noht: " << extime_noht(0)
-       << endl; cout << "ht: " <<ht(0) << endl; cout << "_lr2 Parameters: " <<
-       _lr2->Parameters()[0] << " " << _lr2->Parameters()[1] << endl; cout <<
-       "extime_ht: " << extime_ht(0) << endl; cout << "===== DEBUGGING END
-       =====" << endl;	*/
 
+    /*
+       cout << "[PredictorSMT] predict throughput for " << numCores << " " << numContexts << " " << freq << " --> " << (1/extime_ht(0)) << endl;
+       cout << "===== PREDICTION FREQUENCY DEBUGGING =====" << endl;
+       cout << "usl_freq: " << usl_freq(0) << " " << usl_freq(1) << " " << usl_freq(2) << endl;
+       cout << "_lr1 Parameters: " << _lr1->Parameters()[0] << " " << _lr1->Parameters()[1] << " " << _lr1->Parameters()[2] << " " << _lr1->Parameters()[3] <<endl; cout << "extime_noht: " << extime_noht(0) << endl;
+       cout << "ht: " << ht(0) << endl;
+       cout << "_lr2 Parameters: " << _lr2->Parameters()[0] << " " << _lr2->Parameters()[1] << endl;
+       cout << "extime_ht: " << extime_ht(0) << endl;
+       cout << "===== DEBUGGING END =====" << endl;	
+    */
     return (1 / extime_ht(0));
 
   } break;

@@ -101,7 +101,11 @@ double Knob::getRelativeFromReal(double real) const {
   vector<double> values = getAllowedValues();
   for (size_t i = 0; i < values.size(); i++) {
     if (values[i] == real) {
-      return (((double) i) / values.size()) * 100.0;
+      if(values.size() == 1){
+	return 100.0;
+      }else{
+	return (((double) i) / (values.size() - 1)) * 100.0;
+      }
     }
   }
   return -1;
@@ -445,9 +449,9 @@ std::vector<AdaptiveNode *> KnobVirtualCoresPipe::getActiveWorkers() const {
 }
 
 KnobHyperThreading::KnobHyperThreading(Parameters p, bool hmp, uint cpuId) {
-  vector<PhysicalCore *> physical =
-      p.mammut.getInstanceTopology()->getPhysicalCores();
-  size_t maxHtLevel = physical.at(cpuId)->getVirtualCores().size();
+  vector<PhysicalCore*> physical =
+    p.mammut.getInstanceTopology()->getCpu(cpuId)->getPhysicalCores();
+  size_t maxHtLevel = physical[0]->getVirtualCores().size();
   for (size_t i = 0; i < maxHtLevel; i++) {
     _knobValues.push_back(i + 1);
   }

@@ -36,6 +36,8 @@
 #undef DEBUG
 #undef DEBUGB
 
+//#define DEBUG_SELECTORS
+
 #ifdef DEBUG_SELECTORS
 #define DEBUG(x)                                                               \
   do {                                                                         \
@@ -308,6 +310,7 @@ bool Selector::areKnobsValid(const KnobsValues &kv) {
   if (!_p.knobHyperthreadingEnabled) {
     return true;
   } else {
+    DEBUG("Checking validity of " << kv);
     double valueVC = kv[KNOB_VIRTUAL_CORES], valueHT = kv[KNOB_HYPERTHREADING];
 
     if (!kv.areReal()) {
@@ -323,8 +326,10 @@ bool Selector::areKnobsValid(const KnobsValues &kv) {
 
     if (valueVC / valueHT <= _numPhyCores &&
         (int) valueVC % (int) valueHT == 0) {
+      DEBUG("Valid");
       return true;
     } else {
+      DEBUG("Invalid " << valueVC << " " << valueHT);
       return false;
     }
   }
@@ -671,7 +676,7 @@ KnobsValues SelectorPredictive::getBestKnobsValues() {
 #endif
 
 #if 1
-    DEBUG("Prediction: " << currentValues << " " << throughputPrediction << " "
+    DEBUG("Prediction: " << std::fixed << currentValues << " " << throughputPrediction << " "
                          << powerPrediction << " " << energyPrediction);
 #endif
     if (isFeasibleThroughput(throughputPrediction, true) &&
@@ -1058,29 +1063,39 @@ SelectorLearner::SelectorLearner(const Parameters &p,
     kv[KNOB_HYPERTHREADING] = 0.0;
     additionalPoints.push_back(kv);
 
+    KnobsValues kvreal(KNOB_VALUE_REAL);
+    kvreal[KNOB_VIRTUAL_CORES] =
+      _configuration.getKnob(KNOB_VIRTUAL_CORES)->getAllowedValues().back() / _configuration.getKnob(KNOB_HYPERTHREADING)->getAllowedValues().back(); // Max number of physical cores
+    kvreal[KNOB_FREQUENCY] =
+        _configuration.getKnob(KNOB_FREQUENCY)->getAllowedValues().front();
+    kvreal[KNOB_HYPERTHREADING] =
+        _configuration.getKnob(KNOB_HYPERTHREADING)->getAllowedValues().front();
+    // Convert real to relative
+    kv.reset();
+    kv[KNOB_VIRTUAL_CORES] = _configuration.getKnob(KNOB_VIRTUAL_CORES)->getRelativeFromReal(kvreal[KNOB_VIRTUAL_CORES]);
+    kv[KNOB_FREQUENCY] = _configuration.getKnob(KNOB_FREQUENCY)->getRelativeFromReal(kvreal[KNOB_FREQUENCY]);
+    kv[KNOB_HYPERTHREADING] = _configuration.getKnob(KNOB_HYPERTHREADING)->getRelativeFromReal(kvreal[KNOB_HYPERTHREADING]);
+    additionalPoints.push_back(kv);
+
     kv.reset();
     kv[KNOB_VIRTUAL_CORES] = 0.0;
     kv[KNOB_FREQUENCY] = 100.0;
     kv[KNOB_HYPERTHREADING] = 0.0;
     additionalPoints.push_back(kv);
 
-    KnobsValues kvreal(KNOB_VALUE_REAL);
+    kvreal.reset();
     kvreal[KNOB_VIRTUAL_CORES] =
-        _configuration.getKnob(KNOB_VIRTUAL_CORES)->getAllowedValues().back();
+        _configuration.getKnob(KNOB_HYPERTHREADING)->getAllowedValues().back();  // All virtual cores in one physical core
     kvreal[KNOB_FREQUENCY] =
         _configuration.getKnob(KNOB_FREQUENCY)->getAllowedValues().front();
     kvreal[KNOB_HYPERTHREADING] =
-        _configuration.getKnob(KNOB_HYPERTHREADING)->getAllowedValues().front();
-    additionalPoints.push_back(kvreal);
-
-    kvreal.reset();
-    kv[KNOB_VIRTUAL_CORES] =
-        _configuration.getKnob(KNOB_VIRTUAL_CORES)->getAllowedValues().front();
-    kv[KNOB_FREQUENCY] =
-        _configuration.getKnob(KNOB_FREQUENCY)->getAllowedValues().front();
-    kv[KNOB_HYPERTHREADING] =
         _configuration.getKnob(KNOB_HYPERTHREADING)->getAllowedValues().back();
-    additionalPoints.push_back(kvreal);
+    // Convert real to relative
+    kv.reset();
+    kv[KNOB_VIRTUAL_CORES] =  _configuration.getKnob(KNOB_VIRTUAL_CORES)->getRelativeFromReal(kvreal[KNOB_VIRTUAL_CORES]); 
+    kv[KNOB_FREQUENCY] = _configuration.getKnob(KNOB_FREQUENCY)->getRelativeFromReal(kvreal[KNOB_FREQUENCY]);
+    kv[KNOB_HYPERTHREADING] = _configuration.getKnob(KNOB_HYPERTHREADING)->getRelativeFromReal(kvreal[KNOB_HYPERTHREADING]);
+    additionalPoints.push_back(kv);
 
     // I only need to explore on virtual cores, frequency and contexts
     knobsFlags[KNOB_VIRTUAL_CORES] = true;

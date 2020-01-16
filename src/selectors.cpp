@@ -1711,6 +1711,8 @@ double SelectorHMPNelderMead::nmScore() const {
   double energy = watts * executionTime;
   double score = 0;
 
+  // Old scoring function (for arbitrary requirements)
+  /*
   if (_p.requirements.powerConsumption != NORNIR_REQUIREMENT_UNDEF &&
       _p.requirements.powerConsumption != NORNIR_REQUIREMENT_MIN) {
     score += (_p.requirements.powerConsumption - watts) /
@@ -1745,6 +1747,20 @@ double SelectorHMPNelderMead::nmScore() const {
   	}else if(_p.requirements.executionTime == NORNIR_REQUIREMENT_MIN){
   		throw std::runtime_error("Execution time req not yet available.");
   	}
+  }
+  */
+
+  if (_p.requirements.powerConsumption == NORNIR_REQUIREMENT_MIN) {
+    score = -watts;
+  }
+  if (_p.requirements.throughput == NORNIR_REQUIREMENT_MAX) {
+    score = thr;
+  }
+  if (_p.requirements.energy == NORNIR_REQUIREMENT_MIN) {
+    score = -energy;
+  }
+  if (_p.requirements.executionTime == NORNIR_REQUIREMENT_MIN) {
+    score = -thr;
   }
 #ifdef DEBUG_SELECTORS
   KnobsValues kv = _configuration.getRealValues();

@@ -1707,7 +1707,7 @@ KnobsValues SelectorHMPNelderMead::getFirstConfiguration() const {
 double SelectorHMPNelderMead::nmScore() const {
   double watts = _samples->average().watts;
   double thr = _samples->average().throughput;
-  double executionTime = (_p.requirements.expectedTasksNumber / thr);
+  double executionTime = (_remainingTasks / thr);
   double energy = watts * executionTime;
   double score = 0;
 

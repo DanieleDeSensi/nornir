@@ -201,7 +201,7 @@ std::vector<double> Knob::getAllowedValues() const {
   return _knobValues;
 }
 
-KnobVirtualCores::KnobVirtualCores(Parameters p, uint numHMP, uint cpuId)
+KnobVirtualCores::KnobVirtualCores(Parameters p, size_t numHMP, uint cpuId)
     : _cpuId(cpuId), _p(p) {
   bool isHMP = numHMP > 1;
   size_t numVirtualCores = 0;
@@ -448,7 +448,7 @@ std::vector<AdaptiveNode *> KnobVirtualCoresPipe::getActiveWorkers() const {
   return r;
 }
 
-KnobHyperThreading::KnobHyperThreading(Parameters p, bool hmp, uint cpuId) {
+KnobHyperThreading::KnobHyperThreading(Parameters p, size_t hmp, uint cpuId) {
   vector<PhysicalCore*> physical =
     p.mammut.getInstanceTopology()->getCpu(cpuId)->getPhysicalCores();
   size_t maxHtLevel = physical[0]->getVirtualCores().size();
@@ -463,7 +463,7 @@ void KnobHyperThreading::changeValue(double v) {
 }
 
 KnobMapping::KnobMapping(const Parameters &p, const KnobVirtualCores &knobCores,
-                         const KnobHyperThreading &knobHyperThreading, bool hmp,
+                         const KnobHyperThreading &knobHyperThreading, size_t hmp,
                          uint cpuId)
     : _p(p), _knobCores(knobCores), _knobHyperThreading(knobHyperThreading),
       _hmp(hmp), _cpuId(cpuId),
@@ -506,7 +506,7 @@ void KnobMapping::changeValue(double v) {
   /** Updates unused virtual cores. **/
   _unusedVirtualCores.clear();
   vector<VirtualCore *> allVcs;
-  if (!_hmp) {
+  if (_hmp == 1) {
     allVcs = _topologyHandler->getVirtualCores();
   } else {
     allVcs = _topologyHandler->getCpus()[_cpuId]->getVirtualCores();
@@ -566,7 +566,7 @@ KnobMapping::computeVcOrderLinear() {
   vector<Cpu *> cpus = _topologyHandler->getCpus();
   for (size_t k = 0; k < virtualPerPhysical; k++) {
     for (size_t i = 0; i < cpus.size(); i++) {
-      if (_hmp && i != _cpuId) {
+      if (_hmp > 1 && i != _cpuId) {
         continue;
       }
       vector<PhysicalCore *> phyCores = cpus.at(i)->getPhysicalCores();
@@ -599,7 +599,7 @@ KnobMapping::computeVcOrderInterleaved() {
   for (size_t k = 0; k < virtualPerPhysical; k++) {
     for (size_t j = 0; j < physicalPerCpu; j++) {
       for (size_t i = 0; i < cpus.size(); i++) {
-        if (_hmp && i != _cpuId) {
+        if (_hmp > 1 && i != _cpuId) {
           continue;
         }
         vector<PhysicalCore *> phyCores = cpus.at(i)->getPhysicalCores();
@@ -620,7 +620,7 @@ KnobMapping::computeVcOrderInterleaved() {
 
 KnobMappingExternal::KnobMappingExternal(
     const Parameters &p, const KnobVirtualCores &knobCores,
-    const KnobHyperThreading &knobHyperThreading, bool hmp, uint cpuId)
+    const KnobHyperThreading &knobHyperThreading, size_t hmp, uint cpuId)
     : KnobMapping(p, knobCores, knobHyperThreading, hmp, cpuId),
       _processHandler(NULL) {
   ;
@@ -641,16 +641,32 @@ void KnobMappingExternal::setProcessHandler(
 void KnobMappingExternal::move(
     const std::vector<mammut::topology::VirtualCoreId> &vcOrder) {
   if (_processHandler) {
-    if (_cpuId == 0) {
-      _processHandler->move(vcOrder);
-    } else {
-      if (!_hmp) {
-        throw std::runtime_error("move called on cpuId != 0 but no HMP.");
+    if(_p.fixedPinning){
+      auto threads = _processHandler->getActiveThreadsIdentifiers();
+      std::vector<mammut::task::TaskId> threadsSubset;
+      for(size_t i = 0; i < threads.size(); i++){
+        if(i % _hmp == _cpuId){
+          threadsSubset.push_back(threads[i]);
+        }
       }
-      std::vector<mammut::topology::VirtualCoreId> old;
-      _processHandler->getVirtualCoreIds(old);
-      old.insert(old.end(), vcOrder.begin(), vcOrder.end());
-      _processHandler->move(old);
+
+      size_t i = 0;
+      for(auto t : threadsSubset){
+        _processHandler->getThreadHandler(t)->move(vcOrder[i]);
+        i = (i + 1) % vcOrder.size();
+      }
+    }else{
+      if (_cpuId == 0) {
+        _processHandler->move(vcOrder);
+      } else {
+        if (_hmp == 1) {
+          throw std::runtime_error("move called on cpuId != 0 but no HMP.");
+        }
+        std::vector<mammut::topology::VirtualCoreId> old;
+        _processHandler->getVirtualCoreIds(old);
+        old.insert(old.end(), vcOrder.begin(), vcOrder.end());
+        _processHandler->move(old);
+      }
     }
   } else {
     throw std::runtime_error("setPid or setProcessHandler must be called "
@@ -662,10 +678,10 @@ KnobMappingFarm::KnobMappingFarm(const Parameters &p,
                                  const KnobVirtualCoresFarm &knobCores,
                                  const KnobHyperThreading &knobHyperThreading,
                                  AdaptiveNode *emitter, AdaptiveNode *collector,
-                                 bool hmp, uint cpuId)
+                                 size_t hmp, uint cpuId)
     : KnobMapping(p, knobCores, knobHyperThreading, hmp, cpuId),
       _emitter(emitter), _collector(collector) {
-  if (hmp) {
+  if (hmp > 1) {
     throw std::runtime_error("HMP not supported for KnobMappingFarm.");
   }
 }
@@ -717,7 +733,7 @@ void KnobMappingFarm::move(
 }
 
 KnobFrequency::KnobFrequency(Parameters p, const KnobMapping &knobMapping,
-                             bool hmp, uint cpuId)
+                             size_t hmp, uint cpuId)
     : _p(p), _knobMapping(knobMapping),
       _frequencyHandler(_p.mammut.getInstanceCpuFreq()),
       _topologyHandler(_p.mammut.getInstanceTopology()) {
@@ -732,7 +748,7 @@ KnobFrequency::KnobFrequency(Parameters p, const KnobMapping &knobMapping,
                                "knobFrequencyEnabled to false.");
     } else {
       std::vector<mammut::cpufreq::Domain *> scalableDomains;
-      if (hmp) {
+      if (hmp > 1) {
         scalableDomains.push_back(_frequencyHandler->getDomains()[cpuId]);
       } else {
         scalableDomains = _frequencyHandler->getDomains();
@@ -854,7 +870,7 @@ void KnobFrequency::applyUnusedVCStrategy(Frequency v) {
   }
 }
 
-KnobClkMod::KnobClkMod(Parameters p, const KnobMapping &knobMapping, bool hmp,
+KnobClkMod::KnobClkMod(Parameters p, const KnobMapping &knobMapping, size_t hmp,
                        uint cpuId)
     : _knobMapping(knobMapping) {
   for (double d : p.mammut.getInstanceTopology()

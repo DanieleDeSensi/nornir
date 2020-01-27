@@ -268,6 +268,7 @@ void Parameters::setDefault() {
   isolateManager = false;
   statsReconfiguration = false;
   nelderMeadRange = 2;
+  fixedPinning = false;
   powerDomain = mammut::energy::COUNTER_CPUS;
   perPidLog = false;
   roiFile = "";
@@ -940,6 +941,7 @@ void Parameters::loadXml(const string &paramFileName) {
   SETVALUE(xt, Bool, statsReconfiguration);
   SETVALUE(xt, Enum, powerDomain);
   SETVALUE(xt, Uint, nelderMeadRange);
+  SETVALUE(xt, Bool, fixedPinning);
   SETVALUE(xt, Bool, perPidLog);
   SETVALUE(xt, String, roiFile);
   SETVALUE(xt, ArrayEnums, loggersTypes);

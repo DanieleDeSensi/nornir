@@ -134,12 +134,12 @@ protected:
 
 class KnobVirtualCores: public Knob{
 private:
-    bool _hmp;
+    size_t _hmp;
     uint _cpuId;
 protected:
     Parameters _p;
 public:
-    explicit KnobVirtualCores(Parameters p, uint numHMP = 1, uint cpuId = 0);
+    explicit KnobVirtualCores(Parameters p, size_t numHMP = 1, uint cpuId = 0);
     void changeValue(double v);
     /**
      * Changes the maximum allowed value for this knob.
@@ -217,7 +217,7 @@ private:
 
 class KnobHyperThreading: public Knob{
 public:
-    explicit KnobHyperThreading(Parameters p, bool hmp = false, uint cpuId = 0);
+    explicit KnobHyperThreading(Parameters p, size_t hmp = 1, uint cpuId = 0);
     void changeValue(double v);
 };
 
@@ -234,7 +234,7 @@ public:
     KnobMapping(const Parameters& p,
                 const KnobVirtualCores& knobCores,
                 const KnobHyperThreading& knobHyperThreading,
-                bool hmp = false, uint cpuId = 0);
+                size_t hmp = 1, uint cpuId = 0);
 
     void changeValue(double v);
 
@@ -252,7 +252,7 @@ protected:
     const Parameters& _p;
     const KnobVirtualCores& _knobCores;
     const KnobHyperThreading& _knobHyperThreading;
-    const bool _hmp;
+    const size_t _hmp;
     const uint _cpuId;
 
     virtual size_t getNumVirtualCores();
@@ -273,7 +273,7 @@ public:
     KnobMappingExternal(const Parameters& p,
                         const KnobVirtualCores& knobCores,
                         const KnobHyperThreading& knobHyperThreading,
-                        bool hmp = false, uint cpuId = 0);
+                        size_t hmp = 1, uint cpuId = 0);
 
     void setPid(pid_t pid);
     void setProcessHandler(mammut::task::ProcessHandler* processHandler);
@@ -292,14 +292,14 @@ public:
                 const KnobHyperThreading& knobHyperThreading,
                 AdaptiveNode* emitter,
                 AdaptiveNode* collector,
-                bool hmp = false, uint cpuId = 0);
+                size_t hmp = 1, uint cpuId = 0);
 
     void move(const std::vector<mammut::topology::VirtualCoreId>& vcOrder);
 };
 
 class KnobFrequency: public Knob{
 public:
-    KnobFrequency(Parameters p, const KnobMapping& knobMapping, bool hmp = false, uint cpuId = 0);
+    KnobFrequency(Parameters p, const KnobMapping& knobMapping, size_t hmp = 1, uint cpuId = 0);
     ~KnobFrequency();
     void changeValue(double v);
 private:
@@ -318,7 +318,7 @@ class KnobClkMod: public Knob{
 private:
     const KnobMapping& _knobMapping;
 public:
-    explicit KnobClkMod(Parameters p, const KnobMapping& knobMapping, bool hmp = false, uint cpuId = 0);
+    explicit KnobClkMod(Parameters p, const KnobMapping& knobMapping, size_t hmp = 1, uint cpuId = 0);
     void changeValue(double v);
 };
 

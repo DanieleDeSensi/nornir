@@ -36,8 +36,6 @@
 #undef DEBUG
 #undef DEBUGB
 
-//#define DEBUG_SELECTORS
-
 #ifdef DEBUG_SELECTORS
 #define DEBUG(x)                                                               \
   do {                                                                         \
@@ -310,7 +308,7 @@ bool Selector::areKnobsValid(const KnobsValues &kv) {
   if (!_p.knobHyperthreadingEnabled) {
     return true;
   } else {
-    DEBUG("Checking validity of " << kv);
+    //DEBUG("Checking validity of " << kv);
     double valueVC = kv[KNOB_VIRTUAL_CORES], valueHT = kv[KNOB_HYPERTHREADING];
 
     if (!kv.areReal()) {
@@ -326,10 +324,10 @@ bool Selector::areKnobsValid(const KnobsValues &kv) {
 
     if (valueVC / valueHT <= _numPhyCores &&
         (int) valueVC % (int) valueHT == 0) {
-      DEBUG("Valid");
+      //DEBUG("Valid");
       return true;
     } else {
-      DEBUG("Invalid " << valueVC << " " << valueHT);
+      //DEBUG("Invalid " << valueVC << " " << valueHT);
       return false;
     }
   }
@@ -648,6 +646,7 @@ KnobsValues SelectorPredictive::getBestKnobsValues() {
   double bestSuboptimalPowerPrediction = 0;
 #endif
   bool bestKnobsSet = false;
+  //std::cout << "Getting best." << std::endl;
   const vector<KnobsValues> &combinations =
       _configuration.getAllRealCombinations();
   for (const KnobsValues &currentValues : combinations) {
@@ -666,6 +665,7 @@ KnobsValues SelectorPredictive::getBestKnobsValues() {
     if (throughputPrediction < 0 || powerPrediction < 0 ||
         utilizationPrediction < 0 || timePrediction < 0 ||
         energyPrediction < 0) {
+      //std::cout << "Skip negative" << std::endl;
       continue;
     }
 
@@ -676,8 +676,11 @@ KnobsValues SelectorPredictive::getBestKnobsValues() {
 #endif
 
 #if 1
-    DEBUG("Prediction: " << std::fixed << currentValues << " " << throughputPrediction << " "
-                         << powerPrediction << " " << energyPrediction);
+    // DEBUG("Prediction: " << std::fixed << currentValues << " " << throughputPrediction << " "
+    //                     << powerPrediction << " " << energyPrediction);
+
+    //std::cout << "Prediction: " << currentValues << " " << throughputPrediction << " "
+    //	      << powerPrediction << " " << energyPrediction << std::endl;
 #endif
     if (isFeasibleThroughput(throughputPrediction, true) &&
         isFeasibleLatency(0, true) &&
@@ -1064,8 +1067,15 @@ SelectorLearner::SelectorLearner(const Parameters &p,
     additionalPoints.push_back(kv);
 
     KnobsValues kvreal(KNOB_VALUE_REAL);
-    kvreal[KNOB_VIRTUAL_CORES] =
-      _configuration.getKnob(KNOB_VIRTUAL_CORES)->getAllowedValues().back() / _configuration.getKnob(KNOB_HYPERTHREADING)->getAllowedValues().back(); // Max number of physical cores
+    /*
+    if(_p.activeThreads < _numPhyCores){
+      kvreal[KNOB_VIRTUAL_CORES] = _p.activeThreads;
+    }else{
+      kvreal[KNOB_VIRTUAL_CORES] = _numPhyCores;
+    }
+    */
+    kvreal[KNOB_VIRTUAL_CORES] = _configuration.getKnob(KNOB_VIRTUAL_CORES)->getAllowedValues().back() / _configuration.getKnob(KNOB_HYPERTHREADING)->getAllowedValues().back(); // Max number of physical cores
+    
     kvreal[KNOB_FREQUENCY] =
         _configuration.getKnob(KNOB_FREQUENCY)->getAllowedValues().front();
     kvreal[KNOB_HYPERTHREADING] =
@@ -1097,10 +1107,16 @@ SelectorLearner::SelectorLearner(const Parameters &p,
     kv[KNOB_HYPERTHREADING] = _configuration.getKnob(KNOB_HYPERTHREADING)->getRelativeFromReal(kvreal[KNOB_HYPERTHREADING]);
     additionalPoints.push_back(kv);
 
+    kv.reset();
+    kv[KNOB_VIRTUAL_CORES] =  100.0;
+    kv[KNOB_FREQUENCY] = 0;
+    kv[KNOB_HYPERTHREADING] = 100.0;
+    additionalPoints.push_back(kv);
+
     // I only need to explore on virtual cores, frequency and contexts
     knobsFlags[KNOB_VIRTUAL_CORES] = true;
     knobsFlags[KNOB_FREQUENCY] = true;
-    knobsFlags[KNOB_HYPERTHREADING] = true;
+    knobsFlags[KNOB_HYPERTHREADING] = false; // The points we need for SMT predictions are those in the fixed starting points.
 
   } else {
     for (size_t i = 0; i < KNOB_NUM; i++) {

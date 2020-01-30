@@ -1225,8 +1225,11 @@ PredictorSMT::PredictorSMT(PredictorType type, const Parameters &p,
                            .size() /
                        virtCoresPerPhyCores;
   _maxPhyCores = t->getPhysicalCores().size();
+  _maxContexts = virtCoresPerPhyCores;
   _lr1 = NULL;
   _lr2 = NULL;
+  _omegaMin = 0;
+  _omegaMax = 0;
 }
 
 // Add (or update existing) y to _ys and x to _xs
@@ -1254,21 +1257,21 @@ void PredictorSMT::addObservation(mat &_xs, rowvec &_ys, const vec &x,
   }
 }
 
-double PredictorSMT::getSigma(double numCores, double freq) const {
+double PredictorSMT::getSigma(double numCores, double freq, double contexts) const {
   return (((numCores - 1) * _minFreqCoresExtime * _minFreq) / (numCores * freq)); // B
 }
 
-double PredictorSMT::getKi(double numCores, double freq) const {
+double PredictorSMT::getKi(double numCores, double freq, double contexts) const {
   return (((numCores - 1) * _minFreqCoresExtime * _minFreq) / (freq)); // C
 }
 
-double PredictorSMT::getGamma(double numCores, double freq) const {
+double PredictorSMT::getGamma(double numCores, double freq, double contexts) const {
   return ((_minFreqCoresExtime * _minFreq) / (numCores * freq)); // A
 }
 
 double PredictorSMT::getHT(double numContexts) const {
-  //return 1 - (1 / numContexts);
-  return (1 / numContexts) - 1;
+  return 1 - (1 / numContexts);
+  //return (1 / numContexts) - 1;
 }
 
 void PredictorSMT::refine() {
@@ -1282,6 +1285,10 @@ void PredictorSMT::refine() {
   double freq = 1.0;
   double nActiveCpu = floor(numCores / _phyCoresPerDomain);
   double nCoresInSpuriousCpu = ((uint) numCores) % _phyCoresPerDomain;
+  double maxRestrictedCores = _maxPhyCores;
+  if(_p.activeThreads){
+    maxRestrictedCores = _p.activeThreads / _maxContexts;
+  }
 
   if (_p.knobFrequencyEnabled) {
     freq = _configuration.getKnob(KNOB_FREQUENCY)->getRealValue();
@@ -1294,17 +1301,49 @@ void PredictorSMT::refine() {
         _minFreqCoresExtime = executionTime;
 
       vec x1(3);
-      x1(0) = getSigma(numCores, freq);
-      x1(1) = getKi(numCores, freq);
-      x1(2) = getGamma(numCores, freq);
+      x1(0) = getSigma(numCores, freq, numContexts);
+      x1(1) = getKi(numCores, freq, numContexts);
+      x1(2) = getGamma(numCores, freq, numContexts);
 
       addObservation(_xs1, _ys1, x1, executionTime);
+    }else if(_omegaMax){
+      // Even if numContexts != 1, use interpolated data to interpolate (risky)
+      /*
+      double omega = (_omegaMin + ((_omegaMin - _omegaMax)/(1 - (int) maxRestrictedCores))*(numCores - 1));
+      double x1 = numContexts, x2 = _maxContexts, y1 = executionTime, y2 = y1*omega;      
+      double estimatedTime = 1.0 / y1 + ((1.0 / y1 - 1.0 / y2)/(x1 - x2))*(numContexts - x1);
+
+      vec x1(3);
+      x1(0) = getSigma(numCores, freq, 1);
+      x1(1) = getKi(numCores, freq, 1);
+      x1(2) = getGamma(numCores, freq, 1);
+
+      addObservation(_xs1, _ys1, x1, estimatedTime);
+      */
     }
 
+    if(numContexts == _maxContexts && numCores == 1 && freq == _minFreq){
+      _minFreqCoresSMTExtime = executionTime;
+      _omegaMin = _minFreqCoresSMTExtime / _minFreqCoresExtime;
+    }
+
+    if(numContexts == 1 &&
+       numCores == maxRestrictedCores &&
+       freq == _minFreq){
+      _maxCoresMinSMTExtime = executionTime;
+    }
+
+    if(numContexts == _maxContexts &&
+       numCores == maxRestrictedCores &&
+       freq == _minFreq){
+      _maxCoresMaxSMTExtime = executionTime;
+      _omegaMax = _maxCoresMaxSMTExtime / _maxCoresMinSMTExtime;      
+    }
+								       
     vec x2(4);
-    x2(0) = getSigma(numCores, freq);
-    x2(1) = getKi(numCores, freq);
-    x2(2) = getGamma(numCores, freq);
+    x2(0) = getSigma(numCores, freq, numContexts);
+    x2(1) = getKi(numCores, freq, numContexts);
+    x2(2) = getGamma(numCores, freq, numContexts);
     x2(3) = getHT(numContexts);
 
     addObservation(_xs2, _ys2, x2, executionTime);
@@ -1341,9 +1380,13 @@ void PredictorSMT::refine() {
   _preparationNeeded = true;
 }
 bool PredictorSMT::readyForPredictions() {
-
-  uint minPoints = 4;
-  return _xs2.n_cols >= minPoints;
+  //  uint minPoints = 5;
+  //return _xs2.n_cols >= minPoints;
+  if(_type == PREDICTION_THROUGHPUT){
+    return _omegaMax != 0;
+  }else{
+    return _xs2.n_cols >= 4;
+  }
 }
 void PredictorSMT::prepareForPredictions() {
   if (_preparationNeeded) {
@@ -1370,7 +1413,7 @@ void PredictorSMT::prepareForPredictions() {
 
       rowvec extime_ht(_xs2.n_cols);
       for (size_t i = 0; i < _xs2.n_cols; i++)
-        extime_ht(i) = _ys2(i) / extime_noht(i);
+        extime_ht(i) = 1 - (_ys2(i) / extime_noht(i));
 
       // Regression for HT
       if(_lr2){
@@ -1405,17 +1448,52 @@ double PredictorSMT::predict(const KnobsValues &knobValues) {
 
   double nActiveCpu = floor(numCores / _phyCoresPerDomain);
   double nCoresInSpuriousCpu = ((uint) numCores) % _phyCoresPerDomain;
+  double maxRestrictedCores = _maxPhyCores;
+  if(_p.activeThreads){
+    maxRestrictedCores = _p.activeThreads / _maxContexts;
+  }
+  
   switch (_type) {
   case PREDICTION_THROUGHPUT: {
 
     mat usl_freq(3, 1);
-    usl_freq(0, 0) = getSigma(numCores, freq);
-    usl_freq(1, 0) = getKi(numCores, freq);
-    usl_freq(2, 0) = getGamma(numCores, freq);
+    usl_freq(0, 0) = getSigma(numCores, freq, numContexts);
+    usl_freq(1, 0) = getKi(numCores, freq, numContexts);
+    usl_freq(2, 0) = getGamma(numCores, freq, numContexts);
 
     rowvec extime_noht(1);
 
     _lr1->Predict(usl_freq, extime_noht);
+    //extime_noht(0) += getGamma(numCores, freq, numContexts);
+    // EXP - START
+    // Get the omega for this ncores
+    double omega;
+    if(numCores == 1){
+      omega = _omegaMin;
+    }else if(numCores == maxRestrictedCores){
+      omega = _omegaMax;
+    }else{
+      omega = (_omegaMin + ((_omegaMin - _omegaMax)/(1 - (int) maxRestrictedCores))*(numCores - 1));
+    }
+
+    /*
+    if(numContexts == 8 && numCores  < 10){
+      std::cout << " numCores " << numCores << " freq " << freq << " base " << 1.0 / extime_noht(0) << " omega " << omega << std::endl;
+    }
+    */
+
+    // Use the omega
+    if(numContexts == _maxContexts){
+      return 1.0 / (extime_noht(0) * omega);
+    }else if(numContexts == 1){
+      return 1.0 / extime_noht(0);
+    }else{
+      double x1 = 1, x2 = _maxContexts, y1 = extime_noht(0), y2 = y1*omega;
+      //return (((1.0 / y2) - (1.0 / y1))/(x2-x1))*numContexts + (1.0 / y1);
+      return 1.0 / y1 + ((1.0 / y1 - 1.0 / y2)/(x1 - x2))*(numContexts - x1);
+    }
+    // EXP - END
+   
 
     mat ht(1, 1);
     ht(0, 0) = getHT(numContexts);
@@ -1423,7 +1501,8 @@ double PredictorSMT::predict(const KnobsValues &knobValues) {
 
     _lr2->Predict(ht, extime_ht);
 
-    extime_ht(0) *= extime_noht(0);
+    //extime_ht(0) *= extime_noht(0);
+    extime_ht(0) = ((1 - extime_ht(0)) * extime_noht(0));
 
     /*
        cout << "[PredictorSMT] predict throughput for " << numCores << " " << numContexts << " " << freq << " --> " << (1/extime_ht(0)) << endl;

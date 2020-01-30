@@ -565,13 +565,19 @@ private:
 	bool _preparationNeeded;
 	double _minFreq;
 	double _minFreqCoresExtime;
+        double _minFreqCoresSMTExtime;
+        double _maxCoresMinSMTExtime;
+        double _maxCoresMaxSMTExtime;
+        double _omegaMin;
+        double _omegaMax;
 	uint _domains;
 	uint _phyCoresPerDomain;
 	uint _maxPhyCores;
+        uint _maxContexts;
 
-	double getSigma(double numCores, double freq) const;
-	double getKi(double numCores, double freq) const;
-	double getGamma(double numCores, double freq) const;
+        double getSigma(double numCores, double freq, double contexts) const;
+        double getKi(double numCores, double freq, double contexts) const;
+        double getGamma(double numCores, double freq, double contexts) const;
 	double getHT (double numContexts) const;
 		void addObservation(arma::mat& _xs,
 		    arma::rowvec& _ys,

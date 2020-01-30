@@ -962,6 +962,9 @@ public:
     // 'Range' of the starting Nelder-Mead simplex [default = 2].
     uint nelderMeadRange;
 
+    // If true, when instrumented each thread will be pinned to a specific core (rather than a group of threads mapped on a group of cores) [default = false].
+    bool fixedPinning;
+
     // Power domain [default = CPUS]
     mammut::energy::CounterType powerDomain;
 

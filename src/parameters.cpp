@@ -268,6 +268,7 @@ void Parameters::setDefault() {
   isolateManager = false;
   statsReconfiguration = false;
   nelderMeadRange = 2;
+  fixedPinning = false;
   powerDomain = mammut::energy::COUNTER_CPUS;
   perPidLog = false;
   roiFile = "";
@@ -528,10 +529,11 @@ ParametersValidation Parameters::validateRequirements() {
      !isPrimaryRequirement(requirements.powerConsumption)) {
     return VALIDATION_WRONG_REQUIREMENT;
   }
-  // Energy is for the moment supported only by ANALYTICAL_FULL
+  
   if (requirements.energy != NORNIR_REQUIREMENT_UNDEF &&
       strategySelection != STRATEGY_SELECTION_ANALYTICAL_FULL &&
-      strategySelection != STRATEGY_SELECTION_LEARNING) {
+      strategySelection != STRATEGY_SELECTION_LEARNING &&
+      strategySelection != STRATEGY_SELECTION_HMP_NELDERMEAD) {
     return VALIDATION_WRONG_REQUIREMENT;
   }
   if (maxCalibrationTime == 0 && maxCalibrationSteps &&
@@ -939,6 +941,7 @@ void Parameters::loadXml(const string &paramFileName) {
   SETVALUE(xt, Bool, statsReconfiguration);
   SETVALUE(xt, Enum, powerDomain);
   SETVALUE(xt, Uint, nelderMeadRange);
+  SETVALUE(xt, Bool, fixedPinning);
   SETVALUE(xt, Bool, perPidLog);
   SETVALUE(xt, String, roiFile);
   SETVALUE(xt, ArrayEnums, loggersTypes);

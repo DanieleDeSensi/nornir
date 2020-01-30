@@ -988,7 +988,7 @@ SelectorLearner::getPredictor(PredictorType type, const Parameters &p,
 #endif
     } break;
     case STRATEGY_PREDICTION_POWER_SMT: {
-#ifdef ENABLE_GSL
+#ifdef ENABLE_MLPACK
       predictor = new PredictorSMT(type, p, configuration, samples);
 #else
       throw std::runtime_error("Please recompile with -DENABLE_GSL=ON to use "
@@ -1723,8 +1723,12 @@ KnobsValues SelectorHMPNelderMead::getFirstConfiguration() const {
 double SelectorHMPNelderMead::nmScore() const {
   double watts = _samples->average().watts;
   double thr = _samples->average().throughput;
+  double executionTime = (_remainingTasks / thr);
+  double energy = watts * executionTime;
   double score = 0;
 
+  // Old scoring function (for arbitrary requirements)
+  /*
   if (_p.requirements.powerConsumption != NORNIR_REQUIREMENT_UNDEF &&
       _p.requirements.powerConsumption != NORNIR_REQUIREMENT_MIN) {
     score += (_p.requirements.powerConsumption - watts) /
@@ -1733,6 +1737,46 @@ double SelectorHMPNelderMead::nmScore() const {
   if (_p.requirements.throughput != NORNIR_REQUIREMENT_UNDEF &&
       _p.requirements.throughput != NORNIR_REQUIREMENT_MAX) {
     score += (thr - _p.requirements.throughput) / _p.requirements.throughput;
+  }
+  if (_p.requirements.energy != NORNIR_REQUIREMENT_UNDEF &&
+      _p.requirements.energy != NORNIR_REQUIREMENT_MIN) {
+    score += (_p.requirements.energy - energy) / _p.requirements.energy;
+  }
+  if (_p.requirements.executionTime != NORNIR_REQUIREMENT_UNDEF &&
+      _p.requirements.executionTime != NORNIR_REQUIREMENT_MIN) {
+    score += (_p.requirements.executionTime - executionTime) / _p.requirements.executionTime;
+  }
+
+  // Add the score distance to the MIN/MAX requirements only when all primary requiremnts are satisfied
+  if ((_p.requirements.energy != NORNIR_REQUIREMENT_UNDEF && _p.requirements.energy != NORNIR_REQUIREMENT_MIN && energy > _p.requirements.energy) || 
+  	  (_p.requirements.throughput != NORNIR_REQUIREMENT_UNDEF && _p.requirements.throughput != NORNIR_REQUIREMENT_MAX && thr < _p.requirements.throughput) ||
+  	  (_p.requirements.powerConsumption != NORNIR_REQUIREMENT_UNDEF && _p.requirements.powerConsumption != NORNIR_REQUIREMENT_MIN && watts > _p.requirements.powerConsumption) ||
+  	  (_p.requirements.executionTime != NORNIR_REQUIREMENT_UNDEF && _p.requirements.executionTime != NORNIR_REQUIREMENT_MAX && executionTime > _p.requirements.executionTime)) {
+  	; // There is a primary requirement not yet satisfied.
+  }else{
+  	if(_p.requirements.powerConsumption == NORNIR_REQUIREMENT_MIN){
+  		score += (1000.0 - watts);
+  	}else if(_p.requirements.throughput == NORNIR_REQUIREMENT_MAX){
+  		score += thr;
+  	}else if(_p.requirements.energy == NORNIR_REQUIREMENT_MIN){
+  		score += (1000.0*executionTime - energy);
+  	}else if(_p.requirements.executionTime == NORNIR_REQUIREMENT_MIN){
+  		throw std::runtime_error("Execution time req not yet available.");
+  	}
+  }
+  */
+
+  if (_p.requirements.powerConsumption == NORNIR_REQUIREMENT_MIN) {
+    score = -watts;
+  }
+  if (_p.requirements.throughput == NORNIR_REQUIREMENT_MAX) {
+    score = thr;
+  }
+  if (_p.requirements.energy == NORNIR_REQUIREMENT_MIN) {
+    score = -energy;
+  }
+  if (_p.requirements.executionTime == NORNIR_REQUIREMENT_MIN) {
+    score = -thr;
   }
 #ifdef DEBUG_SELECTORS
   KnobsValues kv = _configuration.getRealValues();

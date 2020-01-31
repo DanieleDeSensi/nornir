@@ -645,15 +645,15 @@ void KnobMappingExternal::move(
       auto threads = _processHandler->getActiveThreadsIdentifiers();
       std::vector<mammut::task::TaskId> threadsSubset;
       size_t goodId = 0;
-      for(size_t i = 0; i < threads.size(); i++){
-        if(goodId % _hmp == (_hmp - _cpuId - 1)){ // _hmp - _cpuId - 1 rather than _hmp, so that we start assignign from the last (fastest) HMP domain
-          double usage = 0.0;
-          auto th = _processHandler->getThreadHandler(threads[i]);
-          if(th->getCoreUsage(usage) && usage > 5.0){
-            threadsSubset.push_back(threads[i]);
-            ++goodId;
-          }
-        }
+      for(size_t i = 0; i < threads.size(); i++){        
+	    double usage = 0.0;
+	    auto th = _processHandler->getThreadHandler(threads[i]);
+	    if(th->getCoreUsage(usage) && usage > 5.0){
+	      if(goodId % _hmp == (_hmp - _cpuId - 1)){ // _hmp - _cpuId - 1 rather than _hmp, so that we start assignign from the last (fastest) HMP domain
+	        threadsSubset.push_back(threads[i]);
+	      }
+	      ++goodId;
+	    }
       }
 
       size_t i = 0;

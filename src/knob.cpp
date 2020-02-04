@@ -635,31 +635,50 @@ void KnobMappingExternal::setPid(pid_t pid) {
 
 void KnobMappingExternal::setProcessHandler(
     task::ProcessHandler *processHandler) {
-  _processHandler = processHandler;
+    _processHandler = processHandler;
+    auto threads = _processHandler->getActiveThreadsIdentifiers();
+    _lastThreads.clear();
+    for(auto t : threads){
+        _lastThreads.push_back(_processHandler->getThreadHandler(t));
+    }
 }
 
 void KnobMappingExternal::move(
     const std::vector<mammut::topology::VirtualCoreId> &vcOrder) {
   if (_processHandler) {
-    if(_p.fixedPinning){
-      auto threads = _processHandler->getActiveThreadsIdentifiers();
+    if(_p.fixedPinning){     
       std::vector<mammut::task::TaskId> threadsSubset;
       size_t goodId = 0;
-      for(size_t i = 0; i < threads.size(); i++){        
+      for(size_t i = 0; i < _lastThreads.size(); i++){
 	    double usage = 0.0;
-	    auto th = _processHandler->getThreadHandler(threads[i]);
-	    if(th->getCoreUsage(usage) && usage > 5.0){
+	    auto th = _lastThreads[i];
+	    bool active = th->getCoreUsage(usage);
+	    DEBUG("Thread " << th->getId() << " active " << active << " usage: " << usage);
+	    if(active && usage > 5.0){
+	      DEBUG("mod " << goodId % _hmp << " right " << (_hmp - _cpuId - 1));
 	      if(goodId % _hmp == (_hmp - _cpuId - 1)){ // _hmp - _cpuId - 1 rather than _hmp, so that we start assignign from the last (fastest) HMP domain
-	        threadsSubset.push_back(threads[i]);
+	        threadsSubset.push_back(th->getId());
 	      }
 	      ++goodId;
 	    }
       }
 
+	  for(auto t : _lastThreads){
+        _processHandler->releaseThreadHandler(t);
+      }
+      auto threads = _processHandler->getActiveThreadsIdentifiers();
+	  _lastThreads.clear();
+      for(auto t : threads){
+        _lastThreads.push_back(_processHandler->getThreadHandler(t));
+	  }
+
       size_t i = 0;
       for(auto t : threadsSubset){
-        _processHandler->getThreadHandler(t)->move(vcOrder[i]);
+        auto th = _processHandler->getThreadHandler(t);
+        th->move(vcOrder[i]);
+        DEBUG("CpuID: " << _cpuId << " Thread " << t << " pinned to core " << vcOrder[i]);
         i = (i + 1) % vcOrder.size();
+        _processHandler->releaseThreadHandler(th);
       }
     }else{
       if (_cpuId == 0) {

@@ -781,7 +781,7 @@ double PredictorUsl::predict(const KnobsValues &knobsValues) {
   // maximum number of cores, as value for throughput at minimum frequency
   // use the value we stored instead of the predicted one.
   if (numCores ==
-      _configuration.getKnob(KNOB_VIRTUAL_CORES)->getAllowedValues().size()) {
+      _configuration.getKnob(KNOB_VIRTUAL_CORES)->getAllowedValues().back()) {
     throughput = _minSpeedThr;
   }
 

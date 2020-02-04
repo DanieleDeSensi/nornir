@@ -269,6 +269,7 @@ private:
 class KnobMappingExternal: public KnobMapping{
 private:
     mammut::task::ProcessHandler* _processHandler;
+    std::vector<mammut::task::ThreadHandler*> _lastThreads;
 public:
     KnobMappingExternal(const Parameters& p,
                         const KnobVirtualCores& knobCores,

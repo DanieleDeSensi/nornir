@@ -139,12 +139,15 @@ Manager::Manager(Parameters nornirParameters)
   mammut::cpufreq::Frequency lastFreq = 0;
   _numHMP = 1;
   for (auto d : _cpufreq->getDomains()) {
-    mammut::cpufreq::Frequency hFreq = d->getAvailableFrequencies().back();
-    if (lastFreq != 0 && hFreq != lastFreq) {
-      _numHMP = _topology->getCpus().size();
-      break;
+    auto frequencies = d->getAvailableFrequencies();
+    if(!frequencies.empty()){
+      mammut::cpufreq::Frequency hFreq = frequencies.back();
+      if (lastFreq != 0 && hFreq != lastFreq) {
+        _numHMP = _topology->getCpus().size();
+        break;
+      }
+      lastFreq = hFreq;
     }
-    lastFreq = hFreq;
   }
 }
 

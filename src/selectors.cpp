@@ -1833,4 +1833,27 @@ SelectorRapl::~SelectorRapl(){
   ;
 }
 
+SelectorPforChunk::SelectorPforChunk(const Parameters& p,
+                           const Configuration& configuration,
+                           const Smoother<MonitoredSample>* samples):
+  Selector(p, configuration, samples){
+  ;
+}
+
+SelectorPforChunk::~SelectorPforChunk(){
+  ;
+}
+
+KnobsValues SelectorPforChunk::getNextKnobsValues(){
+  static int i = 0;
+  KnobsValues kv(KNOB_VALUE_RELATIVE);
+  if(i * 25 <= 100){
+    kv[KNOB_PFOR_CHUNK] = i*25;
+    i++;
+  }else{
+    kv[KNOB_PFOR_CHUNK] = 100;
+  }
+  return kv;
+}
+
 } // namespace nornir

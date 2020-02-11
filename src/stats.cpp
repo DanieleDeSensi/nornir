@@ -91,6 +91,8 @@ LoggerStream::LoggerStream(std::ostream *statsStream,
                 << "\t";
   *_statsStream << "ClockModulation"
                 << "\t";
+  *_statsStream << "FarmGrain"
+                << "\t";
   *_statsStream << "CurrentThroughput"
                 << "\t";
   *_statsStream << "SmoothedThroughput"
@@ -206,6 +208,14 @@ void LoggerStream::log(bool isCalibrationPhase,
 
   for (size_t c = 0; c < configuration.getNumHMP(); c++) {
     *_statsStream << configuration.getRealValue(c, KNOB_CLKMOD);
+    if (configuration.getNumHMP() > 1) {
+      *_statsStream << "|";
+    }
+  }
+  *_statsStream << "\t";
+
+  for (size_t c = 0; c < configuration.getNumHMP(); c++) {
+    *_statsStream << configuration.getRealValue(c, KNOB_PFOR_CHUNK);
     if (configuration.getNumHMP() > 1) {
       *_statsStream << "|";
     }

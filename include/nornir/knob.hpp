@@ -334,6 +334,18 @@ public:
     void changeValue(double v);
 };
 
+class KnobPforChunk: public Knob{
+  friend class ParallelFor;
+private:
+    Parameters _p;
+    long int* _chunkPointer;
+    void setChunkPointer(long int* chunkPointer);
+    void setPossibleValues(long long int start, long long int end, long long int step, size_t numThreads);
+public:
+    explicit KnobPforChunk(Parameters p);
+    void changeValue(double v);
+};
+
 /**
  * Knobs values can be:
  *  - Real: e.g. for workers it will get value between 1 and the maximum number of cores.

@@ -646,6 +646,18 @@ public:
     ~SelectorRapl();
 };
 
+class SelectorPforChunk: public Selector{
+protected:
+    bool isMaxPerformanceConfiguration() const{return false;} // Never used by this selector
+public:
+    SelectorPforChunk(const Parameters& p,
+                  const Configuration& configuration,
+                  const Smoother<MonitoredSample>* samples);
+
+    ~SelectorPforChunk();
+    KnobsValues getNextKnobsValues();
+};
+
 }
 
 

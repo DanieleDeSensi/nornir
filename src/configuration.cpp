@@ -192,7 +192,11 @@ double Configuration::getRealValue(KnobType t) const {
 }
 
 double Configuration::getRealValue(uint cpuId, KnobType t) const {
-  return _knobs[cpuId][t]->getRealValue();
+  if(_knobs[cpuId][t]){
+    return _knobs[cpuId][t]->getRealValue();
+  }else{
+    return -1.0;
+  }
 }
 
 KnobsValues Configuration::getRealValues() const {
@@ -314,6 +318,7 @@ ConfigurationExternal::ConfigurationExternal(const Parameters &p, uint numHMPs)
           p, *dynamic_cast<KnobMappingExternal *>(_knobs[c][KNOB_MAPPING]),
           _numHMPs, c);
     }
+    _knobs[c][KNOB_PFOR_CHUNK] = NULL;
   }
 
   _triggers[TRIGGER_TYPE_Q_BLOCKING] = NULL;
@@ -327,7 +332,7 @@ ConfigurationFarm::ConfigurationFarm(const Parameters &p,
                                      ff::ff_gatherer *gt,
                                      volatile bool *terminated, uint numHMPs)
     : Configuration(p, numHMPs) {
-  for (size_t c = 0; c < _knobs.size(); c++) {
+  for (size_t c = 0; c < _numHMPs; c++) {
     _knobs[c][KNOB_VIRTUAL_CORES] = new KnobVirtualCoresFarm(
         p, emitter, collector, gt, workers, terminated);
 
@@ -343,6 +348,9 @@ ConfigurationFarm::ConfigurationFarm(const Parameters &p,
     } else {
       _knobs[c][KNOB_CLKMOD] = new KnobClkMod(
           p, *dynamic_cast<KnobMappingExternal *>(_knobs[c][KNOB_MAPPING]));
+    }
+    if(p.knobPforChunkEnabled){
+      _knobs[c][KNOB_PFOR_CHUNK] = new KnobPforChunk(p);
     }
   }
 
@@ -363,7 +371,7 @@ ConfigurationPipe::ConfigurationPipe(
     std::vector<KnobVirtualCoresFarm *> farms,
     std::vector<std::vector<double>> allowedValues, uint numHMPs)
     : Configuration(p, numHMPs) {
-  for (size_t c = 0; c < _knobs.size(); c++) {
+  for (size_t c = 0; c < _numHMPs; c++) {
     _knobs[c][KNOB_VIRTUAL_CORES] =
         new KnobVirtualCoresPipe(p, farms, allowedValues);
 
@@ -380,6 +388,7 @@ ConfigurationPipe::ConfigurationPipe(
       _knobs[c][KNOB_CLKMOD] = new KnobClkMod(
           p, *dynamic_cast<KnobMappingExternal *>(_knobs[c][KNOB_MAPPING]));
     }
+    _knobs[c][KNOB_PFOR_CHUNK] = NULL;
   }
 
   _triggers[TRIGGER_TYPE_Q_BLOCKING] = NULL;

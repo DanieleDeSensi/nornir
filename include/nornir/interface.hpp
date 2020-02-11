@@ -29,6 +29,8 @@
 #define NORNIR_INTERFACE_HPP_
 
 #include <nornir/manager-ff.hpp>
+#include <nornir/knob.hpp>
+#include <nornir/configuration.hpp>
 
 #include <cstddef>
 #include <queue>
@@ -520,6 +522,7 @@ public:
  *           gatherer
  */
 template <typename I, typename O> class FarmBase: public mammut::utils::NonCopyable{
+  friend class ParallelFor;
 protected:
     ff::ff_farm<>* _farm;
     std::vector<ff::ff_node*> _rawWorkers;
@@ -536,7 +539,7 @@ protected:
     std::vector<WorkerBase<I, O>* > _workers;
 
     template <class S, class W>
-    void init(size_t numWorkers){
+    void init(size_t numWorkers){   
         _nodesCreated = true;
         setScheduler(new S());
         for(size_t i = 0; i < numWorkers; i++){
@@ -864,11 +867,21 @@ public:
  */
 template <typename S, typename I, typename O, typename G>
 class FarmAcceleratorBase: public FarmBase<I, O>{
+  friend class ParallelFor;
 private:
     SchedulerDummy<S, I>* _schedulerDummy;
+    size_t _inputQueueSize;
 protected:
+    void setInputQueueSize(size_t inputQueueSize){
+      _inputQueueSize = inputQueueSize;
+    }
+
     void createFarm(){
+      if(_inputQueueSize){
+        FarmBase<I, O>::_farm = new ff::ff_farm<>(true, _inputQueueSize, 2048, false, DEF_MAX_NUM_WORKERS, true);
+      }else{
         FarmBase<I, O>::_farm = new ff::ff_farm<>(true);
+      }
     }
 
     void preStart(){
@@ -1005,6 +1018,7 @@ public:
  */
 template <typename S, typename I = S, typename O = std::nullptr_t, typename G = std::nullptr_t>
 class FarmAccelerator: public FarmAcceleratorBase<S, I, O, G>{
+  friend class ParallelFor;
 private:
     GathererDummy<O>* _gathererDummy;
 
@@ -1222,6 +1236,12 @@ private:
     FarmAccelerator<ParallelForRange, ParallelForRange, ParallelForRange, ParallelForRange>* _acc;
     std::vector<ParallelForWorker*> _workers;
     size_t _numThreads;
+    long int _autoChunk;
+    Parameters* _p;
+    KnobPforChunk* _knobChunk;
+    long long int _lastStart;
+    long long int _lastEnd;
+    long long int _lastStep;
 
     void pause(){
         long long int receivedTerminations = 0;
@@ -1243,8 +1263,15 @@ private:
 public:
     // TODO: Dire quand'è che possiamo prendere un sample: piu sample per ogni tipo di loop, un sample per ogni tipo di loop, un sample per il blocco di loop
     ParallelFor(unsigned long int numThreads,
-                nornir::Parameters* parameters){
+                nornir::Parameters* parameters):_p(parameters){
         _acc = new FarmAccelerator<ParallelForRange, ParallelForRange, ParallelForRange, ParallelForRange>(parameters);
+        _autoChunk = -1;
+        _lastStart = 0;
+        _lastEnd = 0;
+        _lastStep = 0;
+        if(_p->knobPforChunkEnabled){
+          _acc->setInputQueueSize(2*numThreads);
+        }
         for(unsigned long int i = 0; i < numThreads; i++){
             _workers.push_back(new ParallelForWorker());
             _acc->addWorker(_workers.back());
@@ -1254,6 +1281,11 @@ public:
         _acc->setOndemandScheduling();
         _numThreads = numThreads;
         _acc->start();
+        if(_p->knobPforChunkEnabled){
+          ConfigurationFarm* cf = dynamic_cast<ConfigurationFarm*>(_acc->_manager->_configuration);
+          _knobChunk = dynamic_cast<KnobPforChunk*>(cf->getKnob(KNOB_PFOR_CHUNK));
+          _knobChunk->setChunkPointer(&_autoChunk);
+        }
         pause();
     }
 
@@ -1279,8 +1311,17 @@ public:
         }
 
         if(!chunkSize){
-            unsigned long long numIterations = std::ceil((end - start)/(double) step);
-            chunkSize = std::ceil(numIterations / (double) _numThreads);
+            chunkSize = std::ceil(std::ceil((end - start)/(double) step) / (double) _numThreads);
+        }
+
+        if(_p->knobPforChunkEnabled){
+          if(_lastStart != start || _lastEnd != end || _lastStep != step){
+            _knobChunk->setPossibleValues(start, end, step, _numThreads);
+            _lastStart = start;
+            _lastEnd = end;
+            _lastStep = step;
+          }
+          chunkSize = _autoChunk;
         }
 
         resume();
@@ -1303,6 +1344,9 @@ public:
 
                 setStart = true;
                 numIterations = 0;
+                if(_p->knobPforChunkEnabled){
+                  chunkSize = _autoChunk;
+                }
             }
         }
         // Spurious element

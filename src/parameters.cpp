@@ -238,6 +238,7 @@ void Parameters::setDefault() {
   knobClkModEnabled = false;
   knobHyperthreadingEnabled = false;
   knobHyperthreadingFixedValue = 0;
+  knobPforChunkEnabled = false;
   activeThreads = 0;
   useConcurrencyThrottling = true;
   fastReconfiguration = true;
@@ -586,6 +587,7 @@ ParametersValidation Parameters::validateSelector() {
   knobsSupportSelector[STRATEGY_SELECTION_MANUAL_CLI][KNOB_HYPERTHREADING] =
       true;
   knobsSupportSelector[STRATEGY_SELECTION_MANUAL_CLI][KNOB_CLKMOD] = true;
+  knobsSupportSelector[STRATEGY_SELECTION_MANUAL_CLI][KNOB_PFOR_CHUNK] = false;
 
   // MANUAL WEB
   knobsSupportSelector[STRATEGY_SELECTION_MANUAL_WEB][KNOB_VIRTUAL_CORES] =
@@ -595,6 +597,7 @@ ParametersValidation Parameters::validateSelector() {
   knobsSupportSelector[STRATEGY_SELECTION_MANUAL_WEB][KNOB_HYPERTHREADING] =
       false;
   knobsSupportSelector[STRATEGY_SELECTION_MANUAL_WEB][KNOB_CLKMOD] = false;
+  knobsSupportSelector[STRATEGY_SELECTION_MANUAL_WEB][KNOB_PFOR_CHUNK] = false;
 
   // ANALYTICAL
   knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL][KNOB_VIRTUAL_CORES] =
@@ -604,6 +607,7 @@ ParametersValidation Parameters::validateSelector() {
   knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL][KNOB_HYPERTHREADING] =
       false;
   knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL][KNOB_CLKMOD] = true;
+  knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL][KNOB_PFOR_CHUNK] = false;
 
   // ANALYTICAL_FULL
   knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_VIRTUAL_CORES] =
@@ -615,6 +619,7 @@ ParametersValidation Parameters::validateSelector() {
   knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL]
                       [KNOB_HYPERTHREADING] = false;
   knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_CLKMOD] = true;
+  knobsSupportSelector[STRATEGY_SELECTION_ANALYTICAL_FULL][KNOB_PFOR_CHUNK] = false;
 
   // FULLSEARCH
   knobsSupportSelector[STRATEGY_SELECTION_FULLSEARCH][KNOB_VIRTUAL_CORES] =
@@ -624,6 +629,7 @@ ParametersValidation Parameters::validateSelector() {
   knobsSupportSelector[STRATEGY_SELECTION_FULLSEARCH][KNOB_HYPERTHREADING] =
       true;
   knobsSupportSelector[STRATEGY_SELECTION_FULLSEARCH][KNOB_CLKMOD] = true;
+  knobsSupportSelector[STRATEGY_SELECTION_FULLSEARCH][KNOB_PFOR_CHUNK] = false;
 
   // For learning we do not check since it depends from the predictors choice.
   // (we will check in validatePredictors())
@@ -636,6 +642,7 @@ ParametersValidation Parameters::validateSelector() {
   knobsSupportSelector[STRATEGY_SELECTION_LIMARTINEZ][KNOB_HYPERTHREADING] =
       false;
   knobsSupportSelector[STRATEGY_SELECTION_LIMARTINEZ][KNOB_CLKMOD] = false;
+  knobsSupportSelector[STRATEGY_SELECTION_LIMARTINEZ][KNOB_PFOR_CHUNK] = false;
 
   // LEO
   knobsSupportSelector[STRATEGY_SELECTION_LEO][KNOB_VIRTUAL_CORES] = true;
@@ -643,6 +650,7 @@ ParametersValidation Parameters::validateSelector() {
   knobsSupportSelector[STRATEGY_SELECTION_LEO][KNOB_MAPPING] = false;
   knobsSupportSelector[STRATEGY_SELECTION_LEO][KNOB_HYPERTHREADING] = false;
   knobsSupportSelector[STRATEGY_SELECTION_LEO][KNOB_CLKMOD] = false;
+  knobsSupportSelector[STRATEGY_SELECTION_LEO][KNOB_PFOR_CHUNK] = false;
 
   if (strategySelection == STRATEGY_SELECTION_LEO &&
       (leo.throughputData.compare("") == 0 || leo.powerData.compare("") == 0 ||
@@ -660,6 +668,7 @@ ParametersValidation Parameters::validateSelector() {
   knobsSupportSelector[STRATEGY_SELECTION_HMP_NELDERMEAD][KNOB_HYPERTHREADING] =
       false;
   knobsSupportSelector[STRATEGY_SELECTION_HMP_NELDERMEAD][KNOB_CLKMOD] = false;
+  knobsSupportSelector[STRATEGY_SELECTION_HMP_NELDERMEAD][KNOB_PFOR_CHUNK] = false;
 
   // RAPL
   knobsSupportSelector[STRATEGY_SELECTION_RAPL][KNOB_VIRTUAL_CORES] = false;
@@ -667,6 +676,15 @@ ParametersValidation Parameters::validateSelector() {
   knobsSupportSelector[STRATEGY_SELECTION_RAPL][KNOB_MAPPING] = false;
   knobsSupportSelector[STRATEGY_SELECTION_RAPL][KNOB_HYPERTHREADING] = false;
   knobsSupportSelector[STRATEGY_SELECTION_RAPL][KNOB_CLKMOD] = false;
+  knobsSupportSelector[STRATEGY_SELECTION_RAPL][KNOB_PFOR_CHUNK] = false;
+
+  // PFOR_CHUNK
+  knobsSupportSelector[STRATEGY_SELECTION_PFOR_CHUNK][KNOB_VIRTUAL_CORES] = false;
+  knobsSupportSelector[STRATEGY_SELECTION_PFOR_CHUNK][KNOB_FREQUENCY] = false;
+  knobsSupportSelector[STRATEGY_SELECTION_PFOR_CHUNK][KNOB_MAPPING] = false;
+  knobsSupportSelector[STRATEGY_SELECTION_PFOR_CHUNK][KNOB_HYPERTHREADING] = false;
+  knobsSupportSelector[STRATEGY_SELECTION_PFOR_CHUNK][KNOB_CLKMOD] = false;
+  knobsSupportSelector[STRATEGY_SELECTION_PFOR_CHUNK][KNOB_PFOR_CHUNK] = true;
 
   if (strategySelection == STRATEGY_SELECTION_HMP_NELDERMEAD &&
       (firstConfiguration.virtualCores.empty() ||
@@ -706,30 +724,35 @@ ParametersValidation Parameters::validateSelector() {
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL][KNOB_MAPPING] = true;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL][KNOB_HYPERTHREADING] = false;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL][KNOB_CLKMOD] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_AMDAHL][KNOB_PFOR_CHUNK] = false;
     // LEO
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_VIRTUAL_CORES] = true;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_FREQUENCY] = true;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_MAPPING] = false;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_HYPERTHREADING] = false;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_CLKMOD] = false;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_LEO][KNOB_PFOR_CHUNK] = false;
     // USL
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_VIRTUAL_CORES] = true;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_FREQUENCY] = true;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_MAPPING] = true;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_HYPERTHREADING] = false;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_CLKMOD] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USL][KNOB_PFOR_CHUNK] = false;
     // USLP
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP][KNOB_VIRTUAL_CORES] = true;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP][KNOB_FREQUENCY] = true;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP][KNOB_MAPPING] = true;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP][KNOB_HYPERTHREADING] = false;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP][KNOB_CLKMOD] = true;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_USLP][KNOB_PFOR_CHUNK] = false;
     // SMT
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_VIRTUAL_CORES] = true;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_FREQUENCY] = true;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_MAPPING] = false;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_HYPERTHREADING] = true;
     knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_CLKMOD] = false;
+    knobsSupportPerformance[STRATEGY_PREDICTION_PERFORMANCE_SMT][KNOB_PFOR_CHUNK] = false;
 
     /******************************************/
     /*              Power models.             */
@@ -740,21 +763,23 @@ ParametersValidation Parameters::validateSelector() {
     knobsSupportPower[STRATEGY_PREDICTION_POWER_LINEAR][KNOB_MAPPING] = true;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_LINEAR][KNOB_HYPERTHREADING] = false;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_LINEAR][KNOB_CLKMOD] = true;
+    knobsSupportPower[STRATEGY_PREDICTION_POWER_LINEAR][KNOB_PFOR_CHUNK] = false;
     // LEO
     knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_VIRTUAL_CORES] = true;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_FREQUENCY] = true;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_MAPPING] = false;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_HYPERTHREADING] = false;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_CLKMOD] = false;
+    knobsSupportPower[STRATEGY_PREDICTION_POWER_LEO][KNOB_PFOR_CHUNK] = false;
     // SMT
     knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_VIRTUAL_CORES] = true;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_FREQUENCY] = true;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_MAPPING] = false;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_HYPERTHREADING] = true;
     knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_CLKMOD] = false;
+    knobsSupportPower[STRATEGY_PREDICTION_POWER_SMT][KNOB_PFOR_CHUNK] = false;
 
     // Check if the knob enabled can be managed by the predictors specified.
-
     for (size_t i = 0; i < KNOB_NUM; i++) {
       if (_knobEnabled[i] &&
           (!knobsSupportPerformance[strategyPredictionPerformance][i] ||
@@ -819,6 +844,7 @@ template <> char const *enumStrings<StrategySelection>::data[] = {
   "LEO",
   "HMP_NELDERMEAD",
   "RAPL",
+  "PFOR_CHUNK",
   "NUM" // <- Must always be the last
 };
 
@@ -908,6 +934,7 @@ void Parameters::loadXml(const string &paramFileName) {
   SETVALUE(xt, Bool, knobClkModEnabled);
   SETVALUE(xt, Bool, knobHyperthreadingEnabled);
   SETVALUE(xt, Double, knobHyperthreadingFixedValue);
+  SETVALUE(xt, Bool, knobPforChunkEnabled);
 
   SETVALUE(xt, Uint, activeThreads);
   SETVALUE(xt, Bool, useConcurrencyThrottling);
@@ -991,6 +1018,7 @@ ParametersValidation Parameters::validate() {
   _knobEnabled[KNOB_MAPPING] = knobMappingEnabled;
   _knobEnabled[KNOB_HYPERTHREADING] = knobHyperthreadingEnabled;
   _knobEnabled[KNOB_CLKMOD] = knobClkModEnabled;
+  _knobEnabled[KNOB_PFOR_CHUNK] = knobPforChunkEnabled;
 
   /** Validate frequency knob. **/
   ParametersValidation r = validateKnobFrequencies();

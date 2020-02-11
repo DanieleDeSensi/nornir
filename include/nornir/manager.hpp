@@ -62,6 +62,7 @@ class ManagerMulti;
  */
 class Manager: public mammut::utils::Thread{
     friend class ManagerMulti;
+    friend class ParallelFor;
 public:
     explicit Manager(Parameters nornirParameters);
 

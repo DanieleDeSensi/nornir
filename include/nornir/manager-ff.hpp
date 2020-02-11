@@ -88,6 +88,7 @@ struct nrnr_node_F: public nrnr_node_t<TIN, TOUT> {
  */
 class ManagerFastFlow: public Manager{
     template <typename I, typename O> friend class FarmBase;
+    friend class ParallelFor;
 public:
     /**
      * Creates a farm adaptivity manager.

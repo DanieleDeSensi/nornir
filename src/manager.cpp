@@ -380,6 +380,9 @@ Selector *Manager::createSelector() const {
     case STRATEGY_SELECTION_RAPL: {
       return new SelectorRapl(_p, *_configuration, _samples);
     } break;
+    case STRATEGY_SELECTION_PFOR_CHUNK: {
+      return new SelectorPforChunk(_p, *_configuration, _samples);
+    } break;
     default: {
       throw std::runtime_error("Selector not yet implemented.");
     } break;

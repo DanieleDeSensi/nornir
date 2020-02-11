@@ -95,6 +95,7 @@ typedef enum{
     KNOB_MAPPING, // Mapping of threads on physical cores.
     KNOB_FREQUENCY, // Clock frequency of the cores.
     KNOB_CLKMOD, // Clock modulation.
+    KNOB_PFOR_CHUNK, // Parallel for chunk size
     KNOB_NUM  // <---- This must always be the last value
 }KnobType;
 
@@ -168,6 +169,9 @@ typedef enum{
 
     // Uses RAPL power capper to set power consumption requirements.
     STRATEGY_SELECTION_RAPL,
+
+    // Automatically tune parallel for chunk size.
+    STRATEGY_SELECTION_PFOR_CHUNK,
 
     STRATEGY_SELECTION_NUM // <- Must always be the last.
 }StrategySelection;
@@ -797,6 +801,9 @@ public:
     // It will only be considered if knobHyperthreadingEnabled = false.
     // Otherwise, value of the knob will be autotuned. [default = 0]
     double knobHyperthreadingFixedValue; // TODO Do also for other knobs
+
+    // Flag to enable/disable parallel for chunk size knob autotuning [default = false].
+    bool knobPforChunkEnabled;
 
     // Number of active threads in the application. Useful for
     // external managers. If 0, number of active threads is unknown [default = 0].

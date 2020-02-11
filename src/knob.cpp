@@ -81,6 +81,9 @@ std::string knobTypeToString(KnobType kv) {
   case KNOB_CLKMOD: {
     return "ClockModulation";
   } break;
+  case KNOB_PFOR_CHUNK: {
+    return "FarmGrain";
+  } break;
   default: { return "Unknown"; } break;
   }
 }
@@ -944,5 +947,38 @@ void KnobClkModEmulated::changeValue(double v) {
     }
   }
 }
+
+KnobPforChunk::KnobPforChunk(Parameters p):_p(p){
+  ;
+}
+
+void KnobPforChunk::setChunkPointer(long int* chunkPointer){
+  _chunkPointer = chunkPointer;
+}
+
+void KnobPforChunk::setPossibleValues(long long int start, long long end, long long step, size_t numThreads){
+  _knobValues.clear();
+  double numElements = std::ceil((end - start)/(double) step);
+  double lastDenominator = numThreads;
+  double v = 0;
+  while((v = std::ceil(numElements / lastDenominator)) > 1){
+    _knobValues.push_back(v);
+    lastDenominator *= 2;
+  }
+  _knobValues.push_back(1);
+  std::reverse(_knobValues.begin(), _knobValues.end());
+#ifdef DEBUG_KNOB
+  for(auto v : _knobValues){
+    DEBUG("[PforChunk] Value " << v);
+  }
+#endif
+  _realValue = _knobValues[0];
+  *_chunkPointer = _realValue;
+}
+
+void KnobPforChunk::changeValue(double v){
+  *_chunkPointer = v;
+}
+
 
 } // namespace nornir

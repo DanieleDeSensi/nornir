@@ -346,6 +346,13 @@ public:
     void changeValue(double v);
 };
 
+class KnobDummy: public Knob{
+    friend class ParallelFor;
+public:
+    explicit KnobDummy(Parameters p){;}
+    void changeValue(double v){;}
+};
+
 /**
  * Knobs values can be:
  *  - Real: e.g. for workers it will get value between 1 and the maximum number of cores.

@@ -318,7 +318,7 @@ ConfigurationExternal::ConfigurationExternal(const Parameters &p, uint numHMPs)
           p, *dynamic_cast<KnobMappingExternal *>(_knobs[c][KNOB_MAPPING]),
           _numHMPs, c);
     }
-    _knobs[c][KNOB_PFOR_CHUNK] = NULL;
+    _knobs[c][KNOB_PFOR_CHUNK] = new KnobDummy(p);
   }
 
   _triggers[TRIGGER_TYPE_Q_BLOCKING] = NULL;
@@ -351,6 +351,8 @@ ConfigurationFarm::ConfigurationFarm(const Parameters &p,
     }
     if(p.knobPforChunkEnabled){
       _knobs[c][KNOB_PFOR_CHUNK] = new KnobPforChunk(p);
+    }else{
+      _knobs[c][KNOB_PFOR_CHUNK] = new KnobDummy(p);
     }
   }
 
@@ -388,7 +390,7 @@ ConfigurationPipe::ConfigurationPipe(
       _knobs[c][KNOB_CLKMOD] = new KnobClkMod(
           p, *dynamic_cast<KnobMappingExternal *>(_knobs[c][KNOB_MAPPING]));
     }
-    _knobs[c][KNOB_PFOR_CHUNK] = NULL;
+    _knobs[c][KNOB_PFOR_CHUNK] = new KnobDummy(p);
   }
 
   _triggers[TRIGGER_TYPE_Q_BLOCKING] = NULL;

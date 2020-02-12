@@ -898,7 +898,7 @@ public:
      */
     explicit FarmAcceleratorBase(const Parameters* parameters):
             FarmBase<I,O>::FarmBase(parameters),
-            _schedulerDummy(NULL){;}
+            _schedulerDummy(NULL), _inputQueueSize(0){;}
 
     /**
      * The constructor of the farm.
@@ -907,7 +907,7 @@ public:
      */
     explicit FarmAcceleratorBase(const std::string& paramFileName):
              FarmBase<I,O>::FarmBase(paramFileName),
-             _schedulerDummy(NULL){;}
+             _schedulerDummy(NULL), _inputQueueSize(0){;}
 
     /**
      * Denstructor of the accelerator.

@@ -330,6 +330,11 @@ void Manager::lockKnobs() const {
       if (!_p.knobClkModEnabled) {
         _configuration->getKnob(c, KNOB_CLKMOD)->lockToMax();
       }
+      if (!_p.knobPforChunkEnabled) {
+        // Will be ignored anyway by the parallel for, but we need to lock
+        // it for the other Nornir components.
+        _configuration->getKnob(c, KNOB_PFOR_CHUNK)->lockToMax();
+      }
     }
   }
 }

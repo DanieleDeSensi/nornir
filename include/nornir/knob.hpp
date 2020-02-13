@@ -349,7 +349,10 @@ public:
 class KnobDummy: public Knob{
     friend class ParallelFor;
 public:
-    explicit KnobDummy(Parameters p){;}
+    explicit KnobDummy(Parameters p){
+      _realValue = 1;
+      _knobValues.push_back(_realValue);
+    }
     void changeValue(double v){;}
 };
 

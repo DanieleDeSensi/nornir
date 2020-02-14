@@ -1212,6 +1212,9 @@ public:
             // while the workers are working.
             return range;
         }else{
+            // We need to call setTaskMultiplier so that throughput is computed
+            // as iterations/second rather than chunks/second
+            setAdditionalTasks(range->end - range->start - 1);
             for(long long int i = range->start; i < range->end; i += range->step){
                 _function(i, getId());
             }

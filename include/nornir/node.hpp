@@ -136,6 +136,7 @@ private:
     ticks _numTasks;
     NodeType _nodeType;
     ff::ff_thread* _ffThread;
+    size_t _additionalTasks;
     Parameters _p;
 
     // Queue used by the manager to notify that a request is present.
@@ -309,6 +310,11 @@ protected:
      * Can only be called on the emitter.
      */
     void enableRethreading();
+
+    /**
+     * ATTENTION: Only for internal use.
+     */
+    void setAdditionalTasks(size_t additionalTasks);
 };
 
 }

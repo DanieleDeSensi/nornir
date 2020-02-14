@@ -91,7 +91,7 @@ LoggerStream::LoggerStream(std::ostream *statsStream,
                 << "\t";
   *_statsStream << "ClockModulation"
                 << "\t";
-  *_statsStream << "FarmGrain"
+  *_statsStream << "PForChunk"
                 << "\t";
   *_statsStream << "CurrentThroughput"
                 << "\t";

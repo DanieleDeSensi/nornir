@@ -236,6 +236,8 @@ void AdaptiveNode::storeSample() {
 
   _ticksWork = tickstot;
   _numTasks = taskcnt;
+  _numTasks += _additionalTasks;
+  _additionalTasks = 0;
 
   _sampleResponse.loadPercentage =
       ((double) (_ticksWork) / (double) totalTicks) * 100.0;
@@ -351,7 +353,7 @@ void AdaptiveNode::eosnotify(ssize_t id) CX11_KEYWORD(final) {
 AdaptiveNode::AdaptiveNode()
     : _started(false), _terminated(NULL), _rethreadingDisabled(false),
       _goingToFreeze(false), _tasksManager(NULL), _thread(NULL), _ticksWork(0),
-      _numTasks(0),
+      _numTasks(0),  _additionalTasks(0),
       // Some messages are without an answer (e.g. SWITCH_BLOCKING or
       // RESET_SAMPLE). For this reason, we could enqueue more request before
       // the node reads any of them. For example, we could enqueue a
@@ -397,6 +399,12 @@ void AdaptiveNode::enableRethreading() {
         "enableRethreading can only be called on the emitter.");
   }
   _rethreadingDisabled = false;
+}
+
+void AdaptiveNode::setAdditionalTasks(size_t additionalTasks){
+  size_t copy = _additionalTasks;
+  copy += additionalTasks;
+  _additionalTasks = copy;
 }
 
 } // namespace nornir

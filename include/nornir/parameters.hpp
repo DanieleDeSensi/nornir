@@ -918,6 +918,14 @@ public:
     // [default = 100000].
     double clockModulationInterval;
 
+    // Minimum clock frequency to use, in KHz. 
+    // -1 implies no minimum [default = -1].
+    double minClockFrequency;
+
+    // Maximum clock frequency to use, in KHz
+    // -1 implies no maximum [default = -1].
+    double maxClockFrequency;
+
     // Idle threshold (in microseconds) to switch from non blocking to blocking
     // runtime support. If the current idle time goes above this value,
     // and if the runtime has been configured to do so, it will switch

@@ -287,10 +287,16 @@ void Manager::updateRequiredThroughput() {
 
 void Manager::setDomainToHighestFrequency(const Domain *domain) {
   if (!domain->setGovernor(GOVERNOR_PERFORMANCE)) {
-    if (!domain->setGovernor(GOVERNOR_USERSPACE) ||
-        !domain->setHighestFrequencyUserspace()) {
-      throw runtime_error("Manager: Fatal error when trying to set"
+    // Failed to set performance
+    if (!domain->setGovernor(GOVERNOR_USERSPACE) || !domain->setHighestFrequencyUserspace()) {
+      // Failed to set userspace
+      Frequency lower, upper;
+      domain->getHardwareFrequencyBounds(lower, upper); // Get bounds
+      if (!domain->setGovernor(GOVERNOR_ONDEMAND) || !domain->setGovernorBounds(upper, upper)) {
+        // Failed to set ondemand with max frequency
+        throw runtime_error("Manager: Fatal error when trying to set"
                           "domain to maximum frequency.");
+      }
     }
   }
 }

@@ -304,6 +304,7 @@ public:
     ~KnobFrequency();
     void changeValue(double v);
 private:
+    void setFrequency(mammut::cpufreq::Domain *domain, mammut::cpufreq::Frequency frequency);
     void applyUnusedVCStrategySame(const std::vector<mammut::topology::VirtualCore*>& unusedVc, mammut::cpufreq::Frequency v);
     void applyUnusedVCStrategyOff(const std::vector<mammut::topology::VirtualCore*>& unusedVc);
     void applyUnusedVCStrategyLowestFreq(const std::vector<mammut::topology::VirtualCore*>& unusedVc);
@@ -313,6 +314,7 @@ private:
     const KnobMapping& _knobMapping;
     mammut::cpufreq::CpuFreq* _frequencyHandler;
     mammut::topology::Topology* _topologyHandler;
+    bool _changeWithOnDemand;
 };
 
 class KnobClkMod: public Knob{

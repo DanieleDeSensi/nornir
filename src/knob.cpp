@@ -769,9 +769,16 @@ KnobFrequency::KnobFrequency(Parameters p, const KnobMapping &knobMapping,
   std::vector<mammut::cpufreq::Frequency> availableFrequencies;
   availableFrequencies =
       _frequencyHandler->getDomains()[cpuId]->getAvailableFrequencies();
-
+  for (Frequency f : availableFrequencies) {
+    if((_p.minClockFrequency != -1 && f < _p.minClockFrequency) ||
+       (_p.maxClockFrequency != -1 && f > _p.maxClockFrequency)){
+      continue;
+    }else{
+      _knobValues.push_back(f);
+    }
+  }
   if (_p.knobFrequencyEnabled) {
-    if (availableFrequencies.empty()) {
+    if (_knobValues.empty()) {
       throw std::runtime_error("Frequencies not available. Please set "
                                "knobFrequencyEnabled to false.");
     } else {
@@ -781,24 +788,24 @@ KnobFrequency::KnobFrequency(Parameters p, const KnobMapping &knobMapping,
       } else {
         scalableDomains = _frequencyHandler->getDomains();
       }
+      _changeWithOnDemand = false;
       for (Domain *currentDomain : scalableDomains) {
         if (!currentDomain->setGovernor(GOVERNOR_USERSPACE)) {
-          throw runtime_error("KnobFrequency: Impossible "
-                              "to set the specified governor.");
+          _changeWithOnDemand = true;
+          // If userspace is not available, set ondemand with min/max equal to the selected frequency
+          if (!currentDomain->setGovernor(GOVERNOR_ONDEMAND)) {
+            throw runtime_error("KnobFrequency: Impossible to set the frequency manually.");
+          }
         }
         // I set the minimum and maximum frequencies to the min and max
         // of this system.
-        if (!currentDomain->setGovernorBounds(availableFrequencies.front(),
-                                              availableFrequencies.back())) {
+        if (!currentDomain->setGovernorBounds(_knobValues.front(), _knobValues.back())) {
           throw runtime_error("KnobFrequency: Impossible "
                               "to set the governor bounds.");
         }
       }
     }
-    for (Frequency f : availableFrequencies) {
-      _knobValues.push_back(f);
-    }
-    _realValue = availableFrequencies.front();
+    _realValue = _knobValues.front();
   } else {
     _realValue = 1;
     _knobValues.push_back(_realValue);
@@ -821,15 +828,24 @@ void KnobFrequency::changeValue(double v) {
       _frequencyHandler->getDomains(_knobMapping.getActiveVirtualCores());
   for (size_t i = 0; i < scalableDomains.size(); i++) {
     Domain *currentDomain = scalableDomains.at(i);
-    if (!currentDomain->setFrequencyUserspace((uint) v)) {
-      throw runtime_error("KnobFrequency: Impossible "
-                          "to set the specified frequency.");
-    }
+    setFrequency(currentDomain, v);
   }
   DEBUG("[Frequency] Frequency changed for domains: " << scalableDomains);
   applyUnusedVCStrategy(v);
   DEBUG("[Frequency] Active VC: " << _knobMapping.getActiveVirtualCores());
   DEBUG("[Frequency] Unused VC: " << _knobMapping.getUnusedVirtualCores());
+}
+
+void KnobFrequency::setFrequency(Domain *domain, Frequency frequency){
+  if(_changeWithOnDemand){
+    if (!domain->setGovernorBounds(frequency, frequency)) {
+      throw runtime_error("KnobFrequency: Impossible to set the specified frequency.");
+    }
+  }else{
+    if (!domain->setFrequencyUserspace((uint) frequency)) {      
+      throw runtime_error("KnobFrequency: Impossible to set the specified frequency.");
+    }
+  }
 }
 
 void KnobFrequency::applyUnusedVCStrategySame(
@@ -841,10 +857,7 @@ void KnobFrequency::applyUnusedVCStrategySame(
     Domain *domain = unusedDomains.at(i);
     DEBUG("[Frequency] Setting unused domain " << domain->getId()
                                                << " to: " << v);
-    if (!domain->setFrequencyUserspace((uint) v)) {
-      throw runtime_error("KnobFrequency: Impossible "
-                          "to set the specified frequency.");
-    }
+    setFrequency(domain, v);
   }
 }
 
@@ -864,11 +877,19 @@ void KnobFrequency::applyUnusedVCStrategyLowestFreq(
       _frequencyHandler->getDomainsComplete(unusedVc);
   for (size_t i = 0; i < unusedDomains.size(); i++) {
     Domain *domain = unusedDomains.at(i);
-    if (!domain->setGovernor(GOVERNOR_USERSPACE) ||
-        (_p.knobFrequencyEnabled && !domain->setLowestFrequencyUserspace())) {
-      throw runtime_error("KnobFrequency: Impossible to "
-                          "set lowest frequency for unused "
-                          "virtual cores.");
+    if(_changeWithOnDemand){
+      if (!domain->setGovernorBounds(_knobValues.front(), _knobValues.front())) {
+        throw runtime_error("KnobFrequency: Impossible to "
+                            "set lowest frequency for unused "
+                            "virtual cores.");
+      }
+    }else{
+      if (!domain->setGovernor(GOVERNOR_USERSPACE) ||
+          (_p.knobFrequencyEnabled && !domain->setLowestFrequencyUserspace())) {
+        throw runtime_error("KnobFrequency: Impossible to "
+                            "set lowest frequency for unused "
+                            "virtual cores.");
+      }
     }
   }
 }

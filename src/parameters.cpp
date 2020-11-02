@@ -261,6 +261,8 @@ void Parameters::setDefault() {
   clockModulationMin = 1.0;
   clockModulationResolution = 2.0;
   clockModulationInterval = 1000;
+  minClockFrequency = -1;
+  maxClockFrequency = -1;
   thresholdQBlocking = -1;
   thresholdQBlockingBelt = 0.05;
   tolerableSamples = 0;
@@ -385,7 +387,8 @@ bool Parameters::isUnusedVcOffAvailable() {
 
 bool Parameters::isFrequencySettable() {
   vector<Frequency> frequencies = getAvailableFrequencies(mammut);
-  return mammut.getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_USERSPACE) &&
+  return (mammut.getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_USERSPACE) || 
+          mammut.getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_ONDEMAND)) && 
          frequencies.size();
 }
 
@@ -432,8 +435,9 @@ ParametersValidation Parameters::validateKnobFrequencies() {
   vector<Frequency> availableFrequencies = getAvailableFrequencies(mammut);
 
   if (knobFrequencyEnabled &&
-      (!mammut.getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_USERSPACE) ||
-       availableFrequencies.empty())) {
+      ((!mammut.getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_USERSPACE) && 
+        !mammut.getInstanceCpuFreq()->isGovernorAvailable(GOVERNOR_ONDEMAND)) || 
+        availableFrequencies.empty())) {
     return VALIDATION_NO_MANUAL_DVFS;
   }
 
@@ -958,6 +962,8 @@ void Parameters::loadXml(const string &paramFileName) {
   SETVALUE(xt, Double, clockModulationMin);
   SETVALUE(xt, Double, clockModulationResolution);
   SETVALUE(xt, Double, clockModulationInterval);
+  SETVALUE(xt, Double, minClockFrequency);
+  SETVALUE(xt, Double, maxClockFrequency);
   SETVALUE(xt, Double, thresholdQBlocking);
   SETVALUE(xt, Double, thresholdQBlockingBelt);
   SETVALUE(xt, Uint, tolerableSamples);

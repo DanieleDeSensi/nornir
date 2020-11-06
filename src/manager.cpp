@@ -448,8 +448,8 @@ void Manager::observe() {
       // case, we do not store the sample (which is the last one).
       store = false;
     } else {
-      double now = getMillisecondsTime();
       joules = getAndResetJoules();
+      double now = getMillisecondsTime();
       double durationSecs = (now - _lastStoredSampleMs) / 1000.0;
       _lastStoredSampleMs = now;
 
@@ -529,8 +529,8 @@ void Manager::decideAndAct(bool force) {
       // different configurations.
       MonitoredSample sample = clearStoredSample();
       updateTasksCount(sample);
-      _lastStoredSampleMs = getMillisecondsTime();
       getAndResetJoules(); // Reset joules
+      _lastStoredSampleMs = getMillisecondsTime();
     }
     _configuration->trigger();
   }

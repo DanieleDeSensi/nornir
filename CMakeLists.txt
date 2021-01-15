@@ -20,6 +20,7 @@ option (ENABLE_ARMADILLO "Enables Selectors using armadillo" ON)
 option (ENABLE_DATAFLOW "Enables Dataflow interface compilation" ON)
 option (ENABLE_BLACKBOX "Enables blackbox manager (requires PAPI)" OFF)
 option (ENABLE_RAPLCAP "Enables RAPL power capper" ON)
+option (ENABLE_NODEP "Enables compilation without dependencies (is the same than specifying -DENABLE_OMP=OFF -DENABLE_MLPACK=OFF -DENABLE_GSL=OFF -DENABLE_ARMADILLO=OFF -DENABLE_DATAFLOW=OFF -DENABLE_BLACKBOX=OFF -DENABLE_RAPLCAP=OFF)" OFF)
 
 include(CheckCXXCompilerFlag)
 check_cxx_compiler_flag(-faligned-new AW)
@@ -31,6 +32,16 @@ endif()
 
 SET(CMAKE_CXX_FLAGS_RELEASE "-Wall -finline-functions -O3 ${ALIGN_WARN}") 
 SET(CMAKE_CXX_FLAGS_DEBUG  "-Wall -finline-functions -O0 -g ${ALIGN_WARN}") 
+
+if (ENABLE_NODEP)
+    set(ENABLE_OMP "OFF")
+    set(ENABLE_MLPACK "OFF")
+    set(ENABLE_GSL "OFF")
+    set(ENABLE_ARMADILLO "OFF")
+    set(ENABLE_DATAFLOW "OFF")
+    set(ENABLE_BLACKBOX "OFF")
+    set(ENABLE_RAPLCAP "OFF")
+endif (ENABLE_NODEP)
 
 # This must be the first thing done, since COVERAGE_COMPILER_FLAGS must be used by all the targets
 ###########

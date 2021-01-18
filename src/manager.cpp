@@ -1200,6 +1200,7 @@ void ManagerFastFlowPipeline::postConfigurationManagement() {
   _activeWorkers = newWorkers;
 }
 
+
 ManagerTest::ManagerTest(Parameters nornirParameters, uint numthreads)
     : Manager(nornirParameters) {
   // TODO: Avoid this initialization phase which is common to all the managers.

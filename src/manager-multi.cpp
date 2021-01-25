@@ -216,6 +216,7 @@ void ManagerMulti::shrinkAll(Manager* except){
     DEBUG("Shrinking done.");
 }
 
+
 vector<VirtualCoreId> ManagerMulti::getAvailableCores() const{
     vector<VirtualCoreId> availableCores;
     for(mammut::topology::VirtualCoreId vid : _allCores){
